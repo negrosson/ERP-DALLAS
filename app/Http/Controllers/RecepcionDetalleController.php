@@ -21,11 +21,18 @@ class RecepcionDetalleController extends Controller
         $producto = \App\Models\CatalogoProducto::findOrFail($validated['catalogo_producto_id']);
         
         // Autocalcular vencimiento si no se ingresó y el producto tiene constante
-        if (empty($validated['fecha_vencimiento']) && $producto->tieneAutocalculoVencimiento()) {
-            $validated['fecha_vencimiento'] = \App\Services\VencimientoService::calcularVencimiento(
-                $recepcion->fecha_recepcion,
-                $producto->constante_vencimiento_meses
-            );
+        if ($producto->tieneAutocalculoVencimiento()) {
+            if (!empty($validated['fecha_elaboracion'])) {
+                $validated['fecha_vencimiento'] = \App\Services\VencimientoService::calcularVencimiento(
+                    $validated['fecha_elaboracion'],
+                    $producto->constante_vencimiento_meses
+                );
+            } else {
+                return back()->with('error', 'El producto requiere una fecha de elaboración para calcular su vencimiento.');
+            }
+        } else {
+            // Si el producto no tiene autocalculo, nos aseguramos que venga la fecha de vencimiento, a menos que no tenga reglas FEFO (vencimiento_meses null y sin alerta).
+            // Por simplicidad de momento permitiremos que quede null si no la ingresan.
         }
 
         $recepcion->detalles()->create($validated);

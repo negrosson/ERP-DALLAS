@@ -1,4 +1,7 @@
 <x-app-layout>
+    @push('head')
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/localforage/1.10.0/localforage.min.js"></script>
+    @endpush
     <x-slot name="header">
         <div class="flex items-center justify-between">
             <h2 class="text-xl font-bold leading-tight text-emerald-400 flex items-center">
@@ -17,6 +20,20 @@
     <div class="py-4 bg-slate-950 min-h-screen font-sans">
         <div class="mx-auto w-full px-4 sm:px-6 lg:px-8 h-full flex flex-col lg:flex-row gap-6">
             
+            <!-- Banner Offline -->
+            <div id="offline-banner" class="hidden absolute top-0 left-0 w-full bg-yellow-500/90 text-yellow-950 font-bold px-4 py-2 text-center z-50 flex items-center justify-center">
+                <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
+                <span>ESTÁS SIN CONEXIÓN - Modo Offline Activo. Tus escaneos se guardarán en el celular.</span>
+            </div>
+            
+            <div id="online-sync-banner" class="hidden absolute top-0 left-0 w-full bg-emerald-500/90 text-emerald-950 font-bold px-4 py-2 text-center z-50 flex items-center justify-between">
+                <div class="flex items-center">
+                    <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+                    <span>CONEXIÓN RECUPERADA - Tienes datos pendientes de sincronizar.</span>
+                </div>
+                <button type="button" id="btnSync" class="px-4 py-1 bg-emerald-950 text-emerald-400 rounded-lg text-sm font-bold shadow-lg hover:bg-emerald-900">Sincronizar Ahora</button>
+            </div>
+
             <!-- Panel Izquierdo: Configuración y Scanner -->
             <div class="w-full lg:w-1/3 flex flex-col gap-6">
                 
@@ -137,7 +154,10 @@
 
     <script>
         document.addEventListener('DOMContentLoaded', function() {
-            let scannedItems = [];
+            // Cargar de LocalStorage
+            const storedSession = localStorage.getItem('scanner_session');
+            let scannedItems = storedSession ? JSON.parse(storedSession) : [];
+            
             const beepOk = document.getElementById('beepOk');
             const beepError = document.getElementById('beepError');
             const manualInput = document.getElementById('manual_barcode');
@@ -190,6 +210,9 @@
             }
 
             function updateUI() {
+                // Save to local storage
+                localStorage.setItem('scanner_session', JSON.stringify(scannedItems));
+
                 if (scannedItems.length > 0) {
                     emptyState.classList.add('hidden');
                     btnGuardar.disabled = false;
@@ -289,7 +312,7 @@
                 // handle scan failure, usually better to ignore and keep scanning
             }
 
-            // -- Guardar Recepción (Mockup form submit)
+            // -- Guardar Recepción (Mockup form submit o Offline Queue)
             btnGuardar.addEventListener('click', function() {
                 const prov = document.getElementById('proveedor_id').value;
                 const bod = document.getElementById('bodega_id').value;
@@ -297,9 +320,64 @@
                     alert("Debe seleccionar Proveedor y Bodega antes de guardar.");
                     return;
                 }
+
+                // Guardar config también
+                localStorage.setItem('scanner_config', JSON.stringify({prov, bod}));
                 
-                alert("Simulando guardado de " + scannedItems.length + " SKUs. En un entorno real esto enviaría un POST al servidor.");
+                if (!navigator.onLine) {
+                    alert("No tienes conexión a internet. Los datos quedaron guardados en tu celular. Presiona 'Sincronizar' cuando vuelva la señal.");
+                    return;
+                }
+                
+                enviarAlServidor();
+            });
+
+            function enviarAlServidor() {
+                alert("Simulando guardado de " + scannedItems.length + " SKUs al servidor.");
+                // Una vez exitoso:
+                localStorage.removeItem('scanner_session');
+                localStorage.removeItem('scanner_config');
                 window.location.href = "{{ route('recepciones.index') }}";
+            }
+
+            // Manejo de Estado de Red
+            const offlineBanner = document.getElementById('offline-banner');
+            const onlineSyncBanner = document.getElementById('online-sync-banner');
+            const btnSync = document.getElementById('btnSync');
+
+            function updateOnlineStatus() {
+                if (!navigator.onLine) {
+                    offlineBanner.classList.remove('hidden');
+                    onlineSyncBanner.classList.add('hidden');
+                } else {
+                    offlineBanner.classList.add('hidden');
+                    if (scannedItems.length > 0) {
+                        onlineSyncBanner.classList.remove('hidden');
+                    } else {
+                        onlineSyncBanner.classList.add('hidden');
+                    }
+                }
+            }
+
+            window.addEventListener('online', updateOnlineStatus);
+            window.addEventListener('offline', updateOnlineStatus);
+            updateOnlineStatus(); // Check on load
+
+            // Restaurar selects si existían
+            const storedConfig = localStorage.getItem('scanner_config');
+            if (storedConfig) {
+                const conf = JSON.parse(storedConfig);
+                if (conf.prov) document.getElementById('proveedor_id').value = conf.prov;
+                if (conf.bod) document.getElementById('bodega_id').value = conf.bod;
+            }
+
+            // Render inicial si había sesión
+            if (scannedItems.length > 0) {
+                updateUI();
+            }
+
+            btnSync.addEventListener('click', function() {
+                enviarAlServidor();
             });
         });
     </script>

@@ -14,41 +14,55 @@ class DashboardController extends Controller
     {
         // Total de productos en el catálogo
         $totalProductos = CatalogoProducto::count();
+        $productosConStock = CatalogoProducto::whereHas('lotesStock', fn($q) => $q->where('cantidad_disponible', '>', 0))->count();
+        $productosSinStock = $totalProductos - $productosConStock;
+        
+        // Total de unidades en stock
+        $totalUnidades = \Illuminate\Support\Facades\DB::table('lotes_stock')
+            ->where('cantidad_disponible', '>', 0)
+            ->sum('cantidad_disponible');
 
-        // Valorización Total del Inventario (usando precio * cantidad_disponible)
-        // Para simplificar asumiendo precio_venta como valor. Idealmente se usaría costo_unitario,
-        // pero recepcion_detalles tiene precio_unitario (costo). Aquí haremos una aproximación.
-        $lotes = LoteStock::where('cantidad_disponible', '>', 0)->get();
-        $valorTotal = 0;
-        foreach ($lotes as $lote) {
-            // Buscamos el costo en el detalle de la recepción
-            $costo = optional($lote->recepcionDetalle)->precio_unitario ?? 0;
-            $valorTotal += $costo * $lote->cantidad_disponible;
-        }
+        // Valorización total con JOIN directo — sin N+1
+        $valorTotal = \Illuminate\Support\Facades\DB::table('lotes_stock')
+            ->join('recepcion_detalles', 'lotes_stock.recepcion_detalle_id', '=', 'recepcion_detalles.id')
+            ->where('lotes_stock.cantidad_disponible', '>', 0)
+            ->sum(\Illuminate\Support\Facades\DB::raw('recepcion_detalles.precio_unitario * lotes_stock.cantidad_disponible'));
 
         // Alertas de Vencimiento (Listado combinado para la tabla FEFO)
-        $lotesVencidos = LoteStock::with(['producto', 'bodega'])
+        $lotesVencidos = LoteStock::with(['producto:id,nombre', 'bodega:id,nombre'])
             ->where('cantidad_disponible', '>', 0)
             ->where('fecha_vencimiento', '<', now()->startOfDay())
             ->orderBy('fecha_vencimiento', 'asc')
             ->take(10)
             ->get();
 
-        $lotesPorVencer = LoteStock::with(['producto', 'bodega'])
-            ->where('cantidad_disponible', '>', 0)
-            ->where('fecha_vencimiento', '>=', now()->startOfDay())
-            ->where('fecha_vencimiento', '<=', now()->addDays(30)->endOfDay())
-            ->orderBy('fecha_vencimiento', 'asc')
+        $lotesPorVencer = LoteStock::with(['producto:id,nombre', 'bodega:id,nombre'])
+            ->select('lotes_stock.*')
+            ->join('catalogo_productos', 'lotes_stock.catalogo_producto_id', '=', 'catalogo_productos.id')
+            ->where('lotes_stock.cantidad_disponible', '>', 0)
+            ->where('lotes_stock.fecha_vencimiento', '>=', now()->startOfDay())
+            ->whereRaw('lotes_stock.fecha_vencimiento <= DATE_ADD(CURDATE(), INTERVAL IFNULL(catalogo_productos.dias_alerta_vencimiento, 30) DAY)')
+            ->orderBy('lotes_stock.fecha_vencimiento', 'asc')
             ->take(10)
             ->get();
 
-        // Conteos específicos para los badges
-        $counts = [
-            'critico' => LoteStock::where('cantidad_disponible', '>', 0)->where('fecha_vencimiento', '<', now()->addDays(7)->endOfDay())->count(), // < 7 dias y vencidos
-            'alto' => LoteStock::where('cantidad_disponible', '>', 0)->where('fecha_vencimiento', '>', now()->addDays(7)->endOfDay())->where('fecha_vencimiento', '<=', now()->addDays(14)->endOfDay())->count(), // 7 - 14 dias
-            'medio' => LoteStock::where('cantidad_disponible', '>', 0)->where('fecha_vencimiento', '>', now()->addDays(14)->endOfDay())->where('fecha_vencimiento', '<=', now()->addDays(21)->endOfDay())->count(), // 14 - 21 dias
-            'bajo' => LoteStock::where('cantidad_disponible', '>', 0)->where('fecha_vencimiento', '>', now()->addDays(21)->endOfDay())->where('fecha_vencimiento', '<=', now()->addDays(30)->endOfDay())->count(), // 21 - 30 dias
-        ];
+        // Todos los counts en una sola query
+        $now = now();
+        $counts = LoteStock::where('cantidad_disponible', '>', 0)
+            ->whereNotNull('fecha_vencimiento')
+            ->selectRaw("
+                SUM(CASE WHEN fecha_vencimiento < ? THEN 1 ELSE 0 END) as critico,
+                SUM(CASE WHEN fecha_vencimiento >= ? AND fecha_vencimiento <= ? THEN 1 ELSE 0 END) as alto,
+                SUM(CASE WHEN fecha_vencimiento > ? AND fecha_vencimiento <= ? THEN 1 ELSE 0 END) as medio,
+                SUM(CASE WHEN fecha_vencimiento > ? AND fecha_vencimiento <= ? THEN 1 ELSE 0 END) as bajo
+            ", [
+                $now->copy()->addDays(7)->endOfDay(),
+                $now->copy()->addDays(7)->endOfDay(),  $now->copy()->addDays(14)->endOfDay(),
+                $now->copy()->addDays(14)->endOfDay(), $now->copy()->addDays(21)->endOfDay(),
+                $now->copy()->addDays(21)->endOfDay(), $now->copy()->addDays(30)->endOfDay(),
+            ])
+            ->first()
+            ->toArray();
 
         // Últimas Ventas
         $ultimasVentas = Venta::with(['bodega', 'user'])->latest()->take(5)->get();
@@ -101,8 +115,24 @@ class DashboardController extends Controller
             $chartVentasData->push($venta ? $venta->total_ventas : 0);
         }
 
+        // Chart: Productos por vencer en los próximos 90 días (agrupados por mes)
+        $vencimientosPorMes = collect();
+        for ($i = 0; $i < 3; $i++) {
+            $start = now()->addMonths($i)->startOfMonth();
+            $end   = now()->addMonths($i)->endOfMonth();
+            $count = LoteStock::where('cantidad_disponible', '>', 0)
+                ->whereBetween('fecha_vencimiento', [$start, $end])
+                ->count();
+            $vencimientosPorMes->push(['mes' => $start->format('M Y'), 'count' => $count]);
+        }
+        $chartVencLabels = $vencimientosPorMes->pluck('mes')->values()->toArray();
+        $chartVencData   = $vencimientosPorMes->pluck('count')->values()->toArray();
+
         return view('dashboard', compact(
             'totalProductos',
+            'productosConStock',
+            'productosSinStock',
+            'totalUnidades',
             'valorTotal',
             'lotesVencidos',
             'lotesPorVencer',
@@ -115,7 +145,9 @@ class DashboardController extends Controller
             'chartBodegaLabels',
             'chartBodegaData',
             'chartVentasLabels',
-            'chartVentasData'
+            'chartVentasData',
+            'chartVencLabels',
+            'chartVencData'
         ));
     }
 }

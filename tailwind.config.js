@@ -1,6 +1,8 @@
 import defaultTheme from 'tailwindcss/defaultTheme';
 import forms from '@tailwindcss/forms';
 
+import colors from 'tailwindcss/colors';
+
 /** @type {import('tailwindcss').Config} */
 export default {
     content: [
@@ -11,8 +13,19 @@ export default {
 
     theme: {
         extend: {
+            colors: {
+                slate: colors.teal,
+                indigo: colors.emerald,
+            },
             fontFamily: {
                 sans: ['Outfit', ...defaultTheme.fontFamily.sans],
+            },
+            fontSize: {
+                'xs': ['0.85rem', { lineHeight: '1.25rem' }],
+                'sm': ['0.95rem', { lineHeight: '1.5rem' }],
+                'base': ['1.05rem', { lineHeight: '1.75rem' }],
+                'lg': ['1.15rem', { lineHeight: '1.75rem' }],
+                'xl': ['1.35rem', { lineHeight: '1.75rem' }],
             },
             animation: {
                 'gradient-x': 'gradient-x 15s ease infinite',

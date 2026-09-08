@@ -81,7 +81,7 @@ class LoteStock extends Model
 
     public function estaVencido(): bool
     {
-        return $this->fecha_vencimiento->lt(now()->startOfDay());
+        return $this->fecha_vencimiento !== null && $this->fecha_vencimiento->lt(now()->startOfDay());
     }
 
     public function tieneStock(): bool

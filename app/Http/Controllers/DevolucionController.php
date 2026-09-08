@@ -60,9 +60,26 @@ class DevolucionController extends Controller
                 
                 if ($lote) {
                     $lote->cantidad_disponible += $request->cantidad;
+                    if ($request->filled('fecha_vencimiento')) {
+                        $lote->fecha_vencimiento = $request->fecha_vencimiento;
+                    }
                     $lote->save();
                 } else {
-                    throw new \RuntimeException('No se puede procesar la devolución porque este producto nunca ha sido recepcionado en esta bodega (falta ID de recepción).');
+                    // Buscar lote previo de este producto para heredar costo y recepcion_detalle_id
+                    $lotePrevio = LoteStock::where('catalogo_producto_id', $request->catalogo_producto_id)->latest()->first();
+                    if ($lotePrevio) {
+                        LoteStock::create([
+                            'recepcion_detalle_id' => $lotePrevio->recepcion_detalle_id,
+                            'catalogo_producto_id' => $request->catalogo_producto_id,
+                            'bodega_id' => $request->bodega_destino_id,
+                            'cantidad_inicial' => $request->cantidad,
+                            'cantidad_disponible' => $request->cantidad,
+                            'costo_unitario' => $lotePrevio->costo_unitario,
+                            'fecha_vencimiento' => $request->fecha_vencimiento ?? $lotePrevio->fecha_vencimiento,
+                        ]);
+                    } else {
+                        throw new \RuntimeException('No se puede procesar la devolución porque este producto no registra ningún lote previo en el catálogo de inventario.');
+                    }
                 }
             });
 
@@ -70,6 +87,7 @@ class DevolucionController extends Controller
         } catch (\RuntimeException $e) {
             return back()->with('error', $e->getMessage())->withInput();
         } catch (\Exception $e) {
+            \Illuminate\Support\Facades\Log::error('Error registrando devolución: ' . $e->getMessage());
             return back()->with('error', 'Ocurrió un error inesperado al registrar la devolución.')->withInput();
         }
     }

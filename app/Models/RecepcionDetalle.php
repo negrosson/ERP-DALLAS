@@ -42,6 +42,11 @@ class RecepcionDetalle extends Model
         return $this->belongsTo(CatalogoProducto::class);
     }
 
+    public function producto(): BelongsTo
+    {
+        return $this->catalogoProducto();
+    }
+
     public function loteStock(): HasOne
     {
         return $this->hasOne(LoteStock::class);
@@ -49,7 +54,7 @@ class RecepcionDetalle extends Model
 
     // ── Helpers ─────────────────────────────────────────────────
 
-    public function subtotal(): float
+    public function getSubtotalAttribute(): float
     {
         return (float) $this->cantidad * (float) $this->precio_unitario;
     }

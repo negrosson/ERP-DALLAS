@@ -16,10 +16,13 @@ class CatalogoProducto extends Model
         'sku',
         'nombre',
         'descripcion',
+        'formato',
+        'capacidad',
         'unidad_medida',
         'precio_compra_ref',
         'precio_venta',
         'constante_vencimiento_meses',
+        'dias_alerta_vencimiento',
         'activo',
     ];
 

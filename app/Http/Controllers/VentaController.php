@@ -23,7 +23,7 @@ class VentaController extends Controller
         return view('ventas.create', compact('bodegas'));
     }
 
-    public function store(Request $request, InventarioService $inventarioService)
+    public function store(Request $request, \App\Services\DescuentoFefoService $fefoService)
     {
         $request->validate([
             'bodega_id' => 'required|exists:bodegas,id',
@@ -56,6 +56,9 @@ class VentaController extends Controller
 
             $totalVenta = 0;
             $errores = [];
+            
+            // Array para nuestro nuevo motor FEFO
+            $ventasParaFefo = [];
 
             foreach ($rows as $index => $row) {
                 if (empty(trim(implode('', $row)))) continue; // Saltar filas vacías
@@ -72,26 +75,25 @@ class VentaController extends Controller
                     continue;
                 }
 
-                // Intentar descontar stock
-                try {
-                    $lotesAfectados = $inventarioService->descontarStock($producto->id, $request->bodega_id, $cantidad);
-                    
-                    // Precio de venta (idealmente del CSV, por ahora usamos el del catálogo)
-                    $precioUnitario = $producto->precio_venta > 0 ? $producto->precio_venta : 1000; // Placeholder
-                    $subtotal = $cantidad * $precioUnitario;
-
-                    $venta->detalles()->create([
-                        'catalogo_producto_id' => $producto->id,
-                        'cantidad' => $cantidad,
-                        'precio_unitario' => $precioUnitario,
-                        'subtotal' => $subtotal,
-                    ]);
-
-                    $totalVenta += $subtotal;
-
-                } catch (\RuntimeException $e) {
-                    $errores[] = "Línea " . ($index + 2) . ": " . $e->getMessage() . " (SKU: {$sku})";
+                // Acumular para el motor FEFO
+                if (isset($ventasParaFefo[$sku])) {
+                    $ventasParaFefo[$sku] += $cantidad;
+                } else {
+                    $ventasParaFefo[$sku] = $cantidad;
                 }
+
+                // Precio de venta (idealmente del CSV, por ahora usamos el del catálogo)
+                $precioUnitario = $producto->precio_venta > 0 ? $producto->precio_venta : 1000; 
+                $subtotal = $cantidad * $precioUnitario;
+
+                $venta->detalles()->create([
+                    'catalogo_producto_id' => $producto->id,
+                    'cantidad' => $cantidad,
+                    'precio_unitario' => $precioUnitario,
+                    'subtotal' => $subtotal,
+                ]);
+
+                $totalVenta += $subtotal;
             }
 
             if (!empty($errores)) {
@@ -101,12 +103,16 @@ class VentaController extends Controller
 
             $venta->update(['total' => $totalVenta]);
             
+            // Procesar stock irrefutable a través de la cascada FEFO en la bodega seleccionada
+            $fefoService->procesarVentasDiarias($ventasParaFefo, $request->bodega_id);
+            
             DB::commit();
-            return redirect()->route('ventas.index')->with('success', 'Ventas importadas y stock deducido exitosamente.');
+            return redirect()->route('ventas.index')->with('success', 'Ventas procesadas. Stock deducido irrefutablemente según motor FEFO.');
 
         } catch (\Exception $e) {
             DB::rollBack();
-            return back()->with('error', 'Ocurrió un error inesperado: ' . $e->getMessage());
+            \Illuminate\Support\Facades\Log::error('Error procesando ventas: ' . $e->getMessage());
+            return back()->with('error', 'Ocurrió un error inesperado al procesar las ventas. Por favor, inténtelo de nuevo más tarde.');
         }
     }
 

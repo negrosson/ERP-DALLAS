@@ -1,87 +1,309 @@
-@forelse ($lotes as $lote)
-    @php
-        $rowClass = "border-b border-slate-800/60 hover:bg-slate-800/40 transition-all duration-300 backdrop-blur-sm group";
-        $badge = "";
-        
-        if ($lote->fecha_vencimiento) {
-            $vencimiento = \Carbon\Carbon::parse($lote->fecha_vencimiento);
-            $hoy = now();
-            $dias = $hoy->diffInDays($vencimiento, false);
-            
-            if ($dias < 0) {
-                $rowClass = "border-b border-red-900/30 bg-red-950/20 hover:bg-red-900/30 transition-all duration-300 backdrop-blur-sm group";
-                $badge = '<span class="inline-flex items-center rounded-full bg-red-500/10 px-2.5 py-0.5 text-xs font-bold text-red-400 border border-red-500/20 shadow-[0_0_10px_rgba(239,68,68,0.2)]">Vencido</span>';
-            } elseif ($dias < 7) {
-                $rowClass = "border-b border-rose-900/30 bg-rose-950/10 hover:bg-rose-900/20 transition-all duration-300 backdrop-blur-sm group";
-                $badge = '<span class="inline-flex items-center rounded-full bg-rose-500/10 px-2.5 py-0.5 text-xs font-bold text-rose-400 border border-rose-500/20 shadow-[0_0_10px_rgba(244,63,94,0.3)]">CRÍTICO (<7d)</span>';
-            } elseif ($dias <= 14) {
-                $rowClass = "border-b border-orange-900/30 bg-orange-950/10 hover:bg-orange-900/20 transition-all duration-300 backdrop-blur-sm group";
-                $badge = '<span class="inline-flex items-center rounded-full bg-orange-500/10 px-2.5 py-0.5 text-xs font-bold text-orange-400 border border-orange-500/20 shadow-[0_0_10px_rgba(249,115,22,0.2)]">ALERTA (7-14d)</span>';
-            } elseif ($dias <= 21) {
-                $rowClass = "border-b border-yellow-900/30 hover:bg-yellow-900/20 transition-all duration-300 backdrop-blur-sm group";
-                $badge = '<span class="inline-flex items-center rounded-full bg-yellow-500/10 px-2.5 py-0.5 text-xs font-medium text-yellow-400 border border-yellow-500/20 shadow-[0_0_10px_rgba(234,179,8,0.2)]">PREVENTIVO (14-21d)</span>';
-            } elseif ($dias <= 30) {
-                $rowClass = "border-b border-cyan-900/30 hover:bg-cyan-900/20 transition-all duration-300 backdrop-blur-sm group";
-                $badge = '<span class="inline-flex items-center rounded-full bg-cyan-500/10 px-2.5 py-0.5 text-xs font-medium text-cyan-400 border border-cyan-500/20 shadow-[0_0_10px_rgba(6,182,212,0.2)]">ATENCIÓN (21-30d)</span>';
-            } else {
-                $badge = '<span class="inline-flex items-center rounded-full bg-emerald-500/10 px-2.5 py-0.5 text-xs font-medium text-emerald-400 border border-emerald-500/20 shadow-[0_0_10px_rgba(16,185,129,0.2)]">Sano (+' . intval($dias) . 'd)</span>';
-            }
-        }
-    @endphp
-    <tr class="{{ $rowClass }}">
-        <td class="px-6 py-4 font-medium text-slate-300 group-hover:text-white transition-colors font-mono text-xs">
-            #{{ $lote->id }}
-        </td>
-        <td class="px-6 py-4 text-sm text-slate-400 group-hover:text-slate-300 transition-colors">
-            {{ optional($lote->bodega)->nombre }}
-        </td>
-        <td class="px-6 py-4 font-mono text-sm text-slate-500 group-hover:text-slate-400 transition-colors">
-            {{ optional($lote->producto)->sku }}
-        </td>
-        <td class="px-6 py-4 font-medium text-slate-200 group-hover:text-white transition-colors">
-            @if($lote->producto)
-                <a href="{{ route('catalogo.show', $lote->producto) }}" class="text-indigo-400 hover:text-indigo-300 hover:underline">
-                    {{ $lote->producto->nombre }}
-                </a>
-            @else
-                N/A
-            @endif
-        </td>
-        <td class="px-6 py-4 text-right font-bold text-slate-200 group-hover:text-white transition-colors">
-            {{ number_format($lote->cantidad_disponible, 2, ',', '.') }} <span class="font-normal text-slate-500">{{ optional($lote->producto)->unidad_medida }}</span>
-        </td>
-        <td class="px-6 py-4 text-right text-slate-400 group-hover:text-slate-300 transition-colors">
-            ${{ number_format($lote->costo_unitario, 2, ',', '.') }}
-        </td>
-        <td class="px-6 py-4 flex items-center space-x-2">
-            @if($lote->fecha_vencimiento)
-                {!! $badge !!}
-                <span class="{{ str_contains($rowClass, 'bg-red') ? 'text-red-400 font-bold' : 'text-slate-400 font-medium group-hover:text-slate-300 transition-colors' }}">
-                    {{ \Carbon\Carbon::parse($lote->fecha_vencimiento)->format('d/m/Y') }}
-                </span>
-            @else
-                <span class="text-slate-600 italic">N/A</span>
-            @endif
-        </td>
-    </tr>
-@empty
-    <tr>
-        <td colspan="7" class="px-6 py-16 text-center bg-slate-900/30 backdrop-blur-sm rounded-xl border border-slate-800/50">
-            <div class="flex flex-col items-center justify-center space-y-4">
-                <div class="p-4 bg-slate-800/50 rounded-full shadow-[0_0_20px_rgba(0,0,0,0.3)] ring-1 ring-slate-700/50">
-                    <svg class="w-10 h-10 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"></path></svg>
+<!-- VISTA PC: TABLA TRADICIONAL -->
+<table class="hidden md:table w-full text-sm text-left text-slate-400 whitespace-nowrap">
+    <thead class="text-xs text-slate-300 uppercase bg-slate-800/80 sticky top-0 z-0 shadow-sm border-b border-slate-700 backdrop-blur-sm">
+        <tr>
+            <th scope="col" class="px-6 py-3">SKU</th>
+            <th scope="col" class="px-6 py-3">Producto</th>
+            <th scope="col" class="px-6 py-3 text-right">Cantidad Disponible</th>
+        </tr>
+    </thead>
+    @forelse ($productos as $producto)
+        @php 
+            $lotes = $producto->lotesStock;
+            $stockTotal = $lotes->sum('cantidad_disponible');
+            $productoJson = json_encode($producto);
+            $lotesJson = json_encode($lotes->values());
+        @endphp
+        <tbody x-data="{ expanded: false }" class="border-b border-slate-800/50">
+            <tr @click="expanded = !expanded" class="bg-slate-900/30 hover:bg-slate-800/80 cursor-pointer transition-colors">
+                <td class="px-6 py-4 font-medium text-slate-200 font-mono flex items-center">
+                    <svg x-show="!expanded" class="w-4 h-4 mr-2 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
+                    <svg x-show="expanded" class="w-4 h-4 mr-2 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="display: none;"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                    {{ $producto->sku }}
+                </td>
+                <td class="px-6 py-4">
+                    <span class="font-bold text-white block">{{ $producto->nombre }}</span>
+                    <div class="flex items-center gap-2 mt-1">
+                        @if($producto->formato)
+                            <span class="bg-indigo-900/50 text-indigo-300 text-[10px] font-bold px-1.5 py-0.5 rounded border border-indigo-700/50 uppercase">{{ $producto->formato }}</span>
+                        @endif
+                        @if($producto->capacidad)
+                            <span class="bg-indigo-900/50 text-indigo-300 text-[10px] font-bold px-1.5 py-0.5 rounded border border-indigo-700/50 uppercase">{{ $producto->capacidad }}</span>
+                        @endif
+                    </div>
+                </td>
+                <td class="px-6 py-4 text-right">
+                    @if($stockTotal > 0)
+                        <span class="bg-indigo-900/50 text-indigo-300 border border-indigo-700 px-3 py-1 rounded-lg font-bold text-base">{{ number_format($stockTotal, 0) }} UN</span>
+                    @else
+                        <span class="inline-flex items-center gap-1.5 bg-slate-800/80 text-slate-400 border border-slate-700 px-3 py-1 rounded-lg font-bold text-xs uppercase tracking-wider">
+                            <svg class="w-3.5 h-3.5 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg>
+                            Agotado
+                        </span>
+                    @endif
+                </td>
+            </tr>
+            <tr x-show="expanded" style="display: none;" class="bg-slate-950/50">
+                <td colspan="3" class="px-10 py-4">
+                    <div class="bg-slate-900 rounded-lg border border-slate-700/50 overflow-hidden shadow-inner">
+                        <table class="w-full text-xs text-left text-slate-400">
+                            <thead class="text-xs text-slate-400 uppercase bg-slate-800/50">
+                                <tr>
+                                    <th class="px-4 py-3">ID Lote</th>
+                                    <th class="px-4 py-3">Origen</th>
+                                    <th class="px-4 py-3">Elaboración</th>
+                                    <th class="px-4 py-3 text-emerald-400">Vencimiento</th>
+                                    <th class="px-4 py-3 text-right">Cant. Lote</th>
+                                    <th class="px-4 py-3 text-center">Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @forelse($lotes as $lote)
+                                <tr class="border-b border-slate-800/30 last:border-0 hover:bg-slate-800/50 transition-colors">
+                                    <td class="px-4 py-3 font-mono">#{{ $lote->id }}</td>
+                                    <td class="px-4 py-3">
+                                        @if($lote->recepcionDetalle && $lote->recepcionDetalle->recepcion)
+                                            <a href="{{ route('recepciones.show', $lote->recepcionDetalle->recepcion) }}" class="text-indigo-400 hover:underline">Recepción #{{ $lote->recepcionDetalle->recepcion->id }}</a>
+                                        @else
+                                            <span class="text-slate-500 italic">Ajuste manual</span>
+                                        @endif
+                                    </td>
+                                    <td class="px-4 py-3">{{ $lote->fecha_elaboracion ? $lote->fecha_elaboracion->format('d/m/Y') : 'N/A' }}</td>
+                                    <td class="px-4 py-3 font-medium {{ $lote->fecha_vencimiento && $lote->fecha_vencimiento->isPast() ? 'text-red-400' : 'text-emerald-400' }}">
+                                        {{ $lote->fecha_vencimiento ? $lote->fecha_vencimiento->format('d/m/Y') : 'S/F' }}
+                                    </td>
+                                    <td class="px-4 py-3 text-right font-bold text-slate-200">{{ number_format($lote->cantidad_disponible, 0) }} UN</td>
+                                    <td class="px-4 py-3 text-center">
+                                        <div class="flex items-center justify-center gap-1">
+                                            <button type="button"
+                                                class="btn-ajuste-masivo inline-flex justify-center items-center text-xs px-2 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded border border-slate-600 transition-colors"
+                                                data-producto="{{ $productoJson }}"
+                                                data-lotes="{{ json_encode([$lote]) }}"
+                                                onclick="window.dispatchEvent(new CustomEvent('open-ajuste-masivo', { detail: { producto: JSON.parse(this.dataset.producto), lotes: JSON.parse(this.dataset.lotes) } }))"
+                                                title="Ajustar Stock">
+                                                <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>
+                                                Ajustar
+                                            </button>
+                                            <button type="button"
+                                                class="inline-flex justify-center items-center text-xs px-2 py-1 bg-indigo-900/40 hover:bg-indigo-900/60 text-indigo-300 rounded border border-indigo-700/50 transition-colors"
+                                                onclick="window.dispatchEvent(new CustomEvent('open-fechas-modal', { detail: { id: '{{ $lote->id }}', elab: '{{ $lote->fecha_elaboracion ? $lote->fecha_elaboracion->format('d/m/Y') : 'N/A' }}', venc: '{{ $lote->fecha_vencimiento ? $lote->fecha_vencimiento->format('d/m/Y') : 'S/F' }}', url: '{{ route('lotes.fechas.update', $lote->id) }}', vida_util: '{{ $producto->constante_vencimiento_meses ?? '' }}' } }))"
+                                                title="Editar Fechas">
+                                                <svg class="w-3 h-3 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+                                                Fechas
+                                            </button>
+                                            <button type="button"
+                                                class="inline-flex justify-center items-center text-xs px-2 py-1 bg-amber-900/40 hover:bg-amber-900/60 text-amber-300 rounded border border-amber-700/50 transition-colors"
+                                                onclick="window.dispatchEvent(new CustomEvent('open-transfer-lote-modal', { detail: { id: {{ $lote->id }}, bodegaNombre: '{{ addslashes(optional($lote->bodega)->nombre ?? '') }}' } }))">
+                                                <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" /></svg>
+                                                Mover
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                                @empty
+                                <tr class="border-b border-slate-800/50 hover:bg-slate-900/50 transition-colors">
+                                    <td colspan="5" class="px-4 py-4 text-center text-slate-500 font-medium italic">
+                                        Sin lotes registrados
+                                    </td>
+                                    <td class="px-4 py-3 text-right">
+                                        <div class="flex items-center justify-end gap-2">
+                                            <button type="button"
+                                                class="btn-ajuste-masivo inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded border border-slate-600 transition-colors"
+                                                data-producto="{{ $productoJson }}"
+                                                data-lotes="{{ $lotesJson }}"
+                                                onclick="window.dispatchEvent(new CustomEvent('open-ajuste-masivo', { detail: { producto: JSON.parse(this.dataset.producto), lotes: JSON.parse(this.dataset.lotes) } }))"
+                                                title="Ajustar">
+                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>
+                                                Ajustar
+                                            </button>
+                                            <button type="button"
+                                                class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-indigo-900/40 hover:bg-indigo-900/60 text-indigo-300 rounded border border-indigo-700/50 transition-colors opacity-50 cursor-not-allowed"
+                                                onclick="alert('No hay lotes para modificar fechas.')"
+                                                title="Fechas">
+                                                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+                                                Fechas
+                                            </button>
+                                            <button type="button"
+                                                class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-amber-900/40 hover:bg-amber-900/60 text-amber-300 rounded border border-amber-700/50 transition-colors opacity-50 cursor-not-allowed"
+                                                onclick="alert('No hay lotes para mover.')"
+                                                title="Mover">
+                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" /></svg>
+                                                Mover
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                                @endforelse
+                            </tbody>
+                        </table>
+                    </div>
+                </td>
+            </tr>
+        </tbody>
+    @empty
+        <tbody>
+            <tr>
+                <td colspan="3" class="px-6 py-12 text-center text-slate-500 bg-slate-900/30">
+                    <svg class="mx-auto h-12 w-12 text-slate-600 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"></path></svg>
+                    <p class="text-lg font-medium text-slate-400">No se encontraron productos</p>
+                    <p class="text-sm mt-1">Prueba ajustando los filtros.</p>
+                </td>
+            </tr>
+        </tbody>
+    @endforelse
+</table>
+
+<!-- VISTA MÓVIL: TARJETAS (CARDS) -->
+<div class="md:hidden flex flex-col gap-4 p-4 pb-24">
+    @forelse ($productos as $producto)
+        @php 
+            $lotes = $producto->lotesStock;
+            $stockTotal = $lotes->sum('cantidad_disponible');
+            $hasLotes = $lotes->count() > 0;
+            $productoJson = json_encode($producto);
+            $lotesJson = json_encode($lotes->values());
+        @endphp
+        <div x-data="{ expanded: false }" class="bg-slate-800/60 rounded-xl border border-slate-700/80 overflow-hidden shadow-sm">
+            <div @click="expanded = {{ $hasLotes ? '!expanded' : 'false' }}" class="p-4 flex flex-col gap-3 {{ $hasLotes ? 'cursor-pointer hover:bg-slate-800/80' : '' }} transition-colors">
+                <div class="flex justify-between items-start">
+                    <div>
+                        <span class="text-xs text-slate-400 font-mono block mb-1">SKU: {{ $producto->sku }}</span>
+                        <span class="font-bold text-white text-base block leading-tight">{{ $producto->nombre }}</span>
+                    </div>
+                    @if($hasLotes)
+                        <div class="text-slate-500 flex-shrink-0 mt-1">
+                            <svg x-show="!expanded" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                            <svg x-show="expanded" class="w-5 h-5 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="display: none;"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7"></path></svg>
+                        </div>
+                    @endif
                 </div>
-                <div>
-                    <h3 class="text-lg font-medium text-slate-200">No se encontraron lotes</h3>
-                    <p class="text-sm text-slate-400 max-w-sm mt-1">No existen lotes disponibles que coincidan con los filtros seleccionados. Intenta modificar tu búsqueda o selección de bodega/proveedor.</p>
+                <div class="flex items-center gap-2 flex-wrap">
+                    @if($producto->formato)
+                        <span class="bg-indigo-900/50 text-indigo-300 text-[10px] font-bold px-2 py-0.5 rounded border border-indigo-700/50 uppercase">{{ $producto->formato }}</span>
+                    @endif
+                    @if($producto->capacidad)
+                        <span class="bg-indigo-900/50 text-indigo-300 text-[10px] font-bold px-2 py-0.5 rounded border border-indigo-700/50 uppercase">{{ $producto->capacidad }}</span>
+                    @endif
+                </div>
+                <div class="mt-1 flex justify-between items-center border-t border-slate-700/50 pt-3">
+                    <div class="flex flex-col gap-1">
+                        <span class="text-xs text-slate-400 font-medium">Stock Total:</span>
+                        <button type="button"
+                            class="btn-ajuste-masivo inline-flex items-center gap-1 text-[10px] font-bold text-indigo-400 hover:text-indigo-300 uppercase tracking-wider"
+                            data-producto="{{ $productoJson }}"
+                            data-lotes="{{ $lotesJson }}"
+                            onclick="window.dispatchEvent(new CustomEvent('open-ajuste-masivo', { detail: { producto: JSON.parse(this.dataset.producto), lotes: JSON.parse(this.dataset.lotes) } }))">
+                            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>
+                            Ajustar
+                        </button>
+                    </div>
+                    @if($stockTotal > 0)
+                        <span class="bg-indigo-900/80 text-indigo-300 border border-indigo-600 px-3 py-1 rounded-lg font-bold text-sm">{{ number_format($stockTotal, 0) }} UN</span>
+                    @else
+                        <span class="inline-flex items-center gap-1 bg-slate-900/80 text-slate-400 border border-slate-700 px-2.5 py-1 rounded-lg font-bold text-xs uppercase">
+                            <svg class="w-3 h-3 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg>
+                            Agotado
+                        </span>
+                    @endif
                 </div>
             </div>
-        </td>
-    </tr>
-@endforelse
+            <div x-show="expanded" style="display: none;" class="bg-slate-900 border-t border-slate-700/50 p-3">
+                <div class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2 px-1">Lotes Disponibles</div>
+                <div class="flex flex-col gap-2">
+                    @forelse($lotes as $lote)
+                    <div class="bg-slate-800 rounded p-3 border border-slate-700/60 relative">
+                        <div class="flex justify-between mb-2">
+                            <span class="font-mono text-xs text-indigo-300">#{{ $lote->id }}</span>
+                            <span class="text-xs font-bold text-white">{{ number_format($lote->cantidad_disponible, 0) }} UN</span>
+                        </div>
+                        <div class="grid grid-cols-2 gap-2 text-xs mb-3">
+                            <div>
+                                <span class="text-slate-500 block mb-0.5">Vencimiento:</span>
+                                <span class="font-medium {{ $lote->fecha_vencimiento && $lote->fecha_vencimiento->isPast() ? 'text-red-400' : 'text-emerald-400' }}">
+                                    {{ $lote->fecha_vencimiento ? $lote->fecha_vencimiento->format('d/m/Y') : 'S/F' }}
+                                </span>
+                            </div>
+                            <div>
+                                <span class="text-slate-500 block mb-0.5">Origen:</span>
+                                @if($lote->recepcionDetalle && $lote->recepcionDetalle->recepcion)
+                                    <a href="{{ route('recepciones.show', $lote->recepcionDetalle->recepcion) }}" class="text-indigo-400 hover:underline truncate block">Recepción #{{ $lote->recepcionDetalle->recepcion->id }}</a>
+                                @else
+                                    <span class="text-slate-500 italic">Ajuste manual</span>
+                                @endif
+                            </div>
+                        </div>
+                        <div class="flex flex-col gap-2 mt-3">
+                            <div class="text-[10px] font-bold text-slate-500 uppercase tracking-widest text-center mb-1">Acciones</div>
+                            <button type="button"
+                                class="btn-ajuste-masivo w-full flex justify-center items-center gap-2 text-sm py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg border border-slate-600 transition-colors shadow-sm"
+                                data-producto="{{ $productoJson }}"
+                                data-lotes="{{ $lotesJson }}"
+                                onclick="window.dispatchEvent(new CustomEvent('open-ajuste-masivo', { detail: { producto: JSON.parse(this.dataset.producto), lotes: JSON.parse(this.dataset.lotes) } }))"
+                                title="Ajustar">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>
+                                Ajustar
+                            </button>
+                            <button type="button"
+                                class="w-full flex justify-center items-center gap-2 text-sm py-2.5 bg-indigo-900/40 hover:bg-indigo-900/60 text-indigo-300 rounded-lg border border-indigo-700/50 transition-colors shadow-sm"
+                                onclick="window.dispatchEvent(new CustomEvent('open-fechas-modal', { detail: { id: '{{ $lote->id }}', elab: '{{ $lote->fecha_elaboracion ? $lote->fecha_elaboracion->format('d/m/Y') : 'N/A' }}', venc: '{{ $lote->fecha_vencimiento ? $lote->fecha_vencimiento->format('d/m/Y') : 'S/F' }}', url: '{{ route('lotes.fechas.update', $lote->id) }}', vida_util: '{{ $producto->constante_vencimiento_meses ?? '' }}' } }))"
+                                title="Fechas">
+                                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+                                Fechas
+                            </button>
+                            <button type="button"
+                                class="w-full flex justify-center items-center gap-2 text-sm py-2.5 bg-amber-900/40 hover:bg-amber-900/60 text-amber-300 rounded-lg border border-amber-700/50 transition-colors shadow-sm"
+                                onclick="window.dispatchEvent(new CustomEvent('open-transfer-lote-modal', { detail: { id: {{ $lote->id }}, bodegaNombre: '{{ addslashes(optional($lote->bodega)->nombre ?? '') }}' } }))"
+                                title="Mover">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" /></svg>
+                                Mover
+                            </button>
+                        </div>
+                    </div>
+                    @empty
+                    <div class="bg-slate-800 rounded p-3 border border-slate-700/60 text-center">
+                        <span class="text-slate-500 mb-3 block italic font-medium">Sin lotes registrados</span>
+                        <div class="flex flex-col gap-2 mt-3">
+                            <div class="text-[10px] font-bold text-slate-500 uppercase tracking-widest text-center mb-1">Acciones</div>
+                            <button type="button"
+                                class="btn-ajuste-masivo w-full flex justify-center items-center gap-2 text-sm py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg border border-slate-600 transition-colors shadow-sm"
+                                data-producto="{{ $productoJson }}"
+                                data-lotes="{{ $lotesJson }}"
+                                onclick="window.dispatchEvent(new CustomEvent('open-ajuste-masivo', { detail: { producto: JSON.parse(this.dataset.producto), lotes: JSON.parse(this.dataset.lotes) } }))"
+                                title="Ajustar">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>
+                                Ajustar
+                            </button>
+                            <button type="button"
+                                class="w-full flex justify-center items-center gap-2 text-sm py-2.5 bg-indigo-900/40 hover:bg-indigo-900/60 text-indigo-300 rounded-lg border border-indigo-700/50 transition-colors shadow-sm opacity-50 cursor-not-allowed"
+                                onclick="alert('No hay lotes para modificar fechas.')"
+                                title="Fechas">
+                                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+                                Fechas
+                            </button>
+                            <button type="button"
+                                class="w-full flex justify-center items-center gap-2 text-sm py-2.5 bg-amber-900/40 hover:bg-amber-900/60 text-amber-300 rounded-lg border border-amber-700/50 transition-colors shadow-sm opacity-50 cursor-not-allowed"
+                                onclick="alert('No hay lotes para mover.')"
+                                title="Mover">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" /></svg>
+                                Mover
+                            </button>
+                        </div>
+                    </div>
+                    @endforelse
+                </div>
+            </div>
+        </div>
+    @empty
+        <div class="bg-slate-800/60 rounded-xl border border-slate-700 p-8 text-center">
+            <svg class="mx-auto h-12 w-12 text-slate-600 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"></path></svg>
+            <p class="text-base font-medium text-slate-400">No se encontraron productos</p>
+        </div>
+    @endforelse
+</div>
 
-<tr id="pagination-links" class="hidden">
-    <td colspan="7">
-        {{ $lotes->links() }}
-    </td>
-</tr>
+@if($productos instanceof \Illuminate\Pagination\LengthAwarePaginator || $productos instanceof \Illuminate\Pagination\Paginator)
+    <div id="pagination-links" class="hidden">
+        {{ $productos->links() }}
+    </div>
+@endif
+

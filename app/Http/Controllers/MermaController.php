@@ -57,6 +57,7 @@ class MermaController extends Controller
         } catch (\RuntimeException $e) {
             return back()->with('error', $e->getMessage())->withInput();
         } catch (\Exception $e) {
+            \Illuminate\Support\Facades\Log::error('Error registrando merma: ' . $e->getMessage());
             return back()->with('error', 'Ocurrió un error inesperado al registrar la merma.')->withInput();
         }
     }

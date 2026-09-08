@@ -32,4 +32,13 @@ class VencimientoService
     {
         return $fechaElaboracion->copy()->addMonths($meses);
     }
+
+    /**
+     * Helper estático para calcular vencimiento a partir de una fecha base y meses.
+     */
+    public static function calcularVencimiento(Carbon|string $fechaBase, int $meses): Carbon
+    {
+        $fecha = is_string($fechaBase) ? Carbon::parse($fechaBase) : $fechaBase->copy();
+        return $fecha->addMonths($meses);
+    }
 }

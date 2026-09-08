@@ -156,9 +156,10 @@ class DatabaseSeeder extends Seeder
         // estos lotes tendrán NULL en fecha_vencimiento, y no aparecerán en FEFO aún.
         $inventarioService->confirmarRecepcion($recPendiente);
         
-        // Actualizar el estado de la Recepcion de nuevo a PENDIENTE_FECHA
-        // porque confirmarRecepcion lo pasa a CONFIRMADO, necesitamos forzarlo.
         $recPendiente->update(['estado' => \App\Enums\EstadoRecepcion::PENDIENTE_FECHA->value]);
+
+        $this->call(CatalogoCcuCocaSeeder::class);
+        $this->call(CervezaExcelSeeder::class);
 
         $this->command->info('Seeding completado con productos reales y recepciones ciegas.');
     }

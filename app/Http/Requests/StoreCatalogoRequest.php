@@ -26,10 +26,13 @@ class StoreCatalogoRequest extends FormRequest
             'sku' => 'required|string|max:50|unique:catalogo_productos,sku',
             'nombre' => 'required|string|max:200',
             'descripcion' => 'nullable|string',
+            'formato' => 'required|string|max:50',
+            'capacidad' => 'required|string|max:50',
             'unidad_medida' => 'required|string|max:10',
             'precio_compra_ref' => 'required|numeric|min:0|max:99999999.99',
             'precio_venta' => 'required|numeric|min:0|max:99999999.99',
             'constante_vencimiento_meses' => 'nullable|integer|min:1|max:120',
+            'dias_alerta_vencimiento' => 'nullable|integer|min:1',
             'activo' => 'boolean',
         ];
     }

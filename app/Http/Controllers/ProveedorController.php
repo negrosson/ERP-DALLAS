@@ -76,4 +76,27 @@ class ProveedorController extends Controller
             return redirect()->route('proveedores.index')->with('error', 'No se puede eliminar el proveedor porque tiene registros asociados (ej. recepciones).');
         }
     }
+
+    /**
+     * Store a newly created resource via AJAX.
+     */
+    public function ajaxStore(Request $request)
+    {
+        $validated = $request->validate([
+            'nombre' => 'required|string|max:255',
+            'rut' => 'nullable|string|max:20|unique:proveedores,rut',
+            'email' => 'nullable|email|max:255',
+            'telefono' => 'nullable|string|max:50',
+            'direccion' => 'nullable|string|max:255',
+        ]);
+        
+        $validated['activo'] = true;
+
+        $proveedor = Proveedor::create($validated);
+
+        return response()->json([
+            'success' => true,
+            'proveedor' => $proveedor
+        ]);
+    }
 }

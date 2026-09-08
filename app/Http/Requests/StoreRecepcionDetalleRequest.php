@@ -24,9 +24,10 @@ class StoreRecepcionDetalleRequest extends FormRequest
     {
         return [
             'catalogo_producto_id' => 'required|exists:catalogo_productos,id',
-            'cantidad_recibida' => 'required|numeric|min:0.01|max:9999999.99',
+            'cantidad' => 'required|numeric|min:0.01|max:9999999.99',
             'precio_unitario' => 'required|numeric|min:0|max:99999999.99',
-            'fecha_vencimiento' => 'nullable|date|after_or_equal:today',
+            'fecha_elaboracion' => 'nullable|date',
+            'fecha_vencimiento' => 'nullable|date',
         ];
     }
 }

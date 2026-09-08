@@ -1,0 +1,1 @@
+<?php foreach(\App\Models\CatalogoProducto::where("nombre", "like", "%Crush%")->orWhere("nombre", "like", "%Pepsi Zero%")->orWhere("nombre", "like", "%Kem%")->get() as $p) { echo $p->nombre . " - Total Stock: " . $p->lotesStock()->sum("cantidad_disponible") . "\n"; }

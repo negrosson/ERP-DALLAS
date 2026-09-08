@@ -17,14 +17,12 @@
                             <!-- Proveedor -->
                             <div>
                                 <x-input-label for="proveedor_id" :value="__('Proveedor')" />
-                                <select id="proveedor_id" name="proveedor_id" class="block w-full mt-1 border-gray-300 rounded-md shadow-sm focus:border-indigo-500 focus:ring-indigo-500" required autofocus>
-                                    <option value="">Seleccione un Proveedor...</option>
+                                <input type="text" id="proveedor_id" name="proveedor_id" list="proveedores_list" class="block w-full mt-1 border-gray-300 rounded-md shadow-sm focus:border-indigo-500 focus:ring-indigo-500" placeholder="Escriba o seleccione un proveedor..." value="{{ old('proveedor_id') }}" required autofocus autocomplete="off">
+                                <datalist id="proveedores_list">
                                     @foreach($proveedores as $prov)
-                                        <option value="{{ $prov->id }}" {{ old('proveedor_id') == $prov->id ? 'selected' : '' }}>
-                                            {{ $prov->nombre }} ({{ $prov->rut }})
-                                        </option>
+                                        <option value="{{ $prov->nombre }}">{{ $prov->rut }}</option>
                                     @endforeach
-                                </select>
+                                </datalist>
                                 <x-input-error :messages="$errors->get('proveedor_id')" class="mt-2" />
                             </div>
 

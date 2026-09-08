@@ -1,0 +1,16 @@
+{
+    "name": "Dallas ERP Móvil",
+    "short_name": "Dallas ERP",
+    "description": "Sistema ERP y Control de Bodegas Offline",
+    "start_url": "/dashboard",
+    "display": "standalone",
+    "background_color": "#020617",
+    "theme_color": "#4f46e5",
+    "icons": [
+        {
+            "src": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA1MTIgNTEyIj48cmVjdCB3aWR0aD0iNTEyIiBoZWlnaHQ9IjUxMiIgZmlsbD0iIzRmNDZlNSIvPjx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBkeT0iLjM1ZW0iIHRleHQtYW5jaG9yPSJtaWRkbGUiIGZvbnQtc2l6ZT0iMjAwIiBmaWxsPSIjZmZmZmZmIiBmb250LWZhbWlseT0ic2Fucy1zZXJpZiIgZm9udC13ZWlnaHQ9ImJvbGQiPkQ8L3RleHQ+PC9zdmc+",
+            "sizes": "512x512",
+            "type": "image/svg+xml"
+        }
+    ]
+}

@@ -1,0 +1,1 @@
+<?php foreach(\App\Models\LoteStock::where("cantidad_disponible", ">", 0)->with("producto")->get() as $l) { if(strpos($l->producto->nombre, "Pepsi Zero 3") !== false || strpos($l->producto->nombre, "Crush Orange Lata") !== false || strpos($l->producto->nombre, "Kem Lata") !== false) { echo $l->producto->nombre . " : " . $l->cantidad_disponible . "\n"; } }
