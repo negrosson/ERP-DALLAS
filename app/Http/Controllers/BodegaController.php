@@ -192,7 +192,6 @@ class BodegaController extends Controller
         $validated = $request->validate([
             'catalogo_producto_id' => 'nullable|exists:catalogo_productos,id',
             'nombre' => 'required_without:catalogo_producto_id|string|max:255',
-            'marca' => 'nullable|string|max:255',
             'formato' => 'nullable|string|max:255',
             'capacidad' => 'nullable|string|max:255',
             'cantidad' => 'required|numeric|min:0.01',
@@ -206,7 +205,6 @@ class BodegaController extends Controller
             $producto = \App\Models\CatalogoProducto::firstOrCreate(
                 [
                     'nombre' => $validated['nombre'],
-                    'marca' => $validated['marca'] ?? null,
                     'formato' => $validated['formato'] ?? null,
                     'capacidad' => $validated['capacidad'] ?? null,
                 ],
@@ -308,12 +306,20 @@ class BodegaController extends Controller
             'lotes.*.fecha_vencimiento' => 'nullable|date|after_or_equal:lotes.*.fecha_elaboracion',
             'motivo' => 'nullable|string|max:255',
             'formato' => 'nullable|string|max:255',
+            'capacidad' => 'nullable|string|max:255',
         ]);
 
         $motivo = $validated['motivo'] ?? 'Ajuste manual de inventario';
         
+        $updateData = [];
         if (isset($validated['formato'])) {
-            $producto->update(['formato' => $validated['formato']]);
+            $updateData['formato'] = $validated['formato'];
+        }
+        if (isset($validated['capacidad'])) {
+            $updateData['capacidad'] = $validated['capacidad'];
+        }
+        if (!empty($updateData)) {
+            $producto->update($updateData);
         }
 
         foreach ($validated['lotes'] as $loteData) {

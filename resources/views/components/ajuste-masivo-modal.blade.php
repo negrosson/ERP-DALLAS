@@ -1,5 +1,15 @@
 @props(['bodega' => null, 'bodegas' => []])
 
+@php
+    $formatosFijos = ['Botella','Vidrio','Lata','Retornable'];
+    $formatosHistoricos = \App\Models\CatalogoProducto::whereNotNull('formato')->select('formato')->distinct()->pluck('formato')->toArray();
+    $todosFormatos = array_unique(array_merge($formatosFijos, $formatosHistoricos));
+
+    $capacidadesFijas = ['200 cc','250 cc','300 cc','330 cc','350 cc','500 cc','575 cc','600 cc','1 Litro','1.25 Litros','1.5 Litros','2 Litros','2.5 Litros','3 Litros'];
+    $capacidadesHistoricas = \App\Models\CatalogoProducto::whereNotNull('capacidad')->select('capacidad')->distinct()->pluck('capacidad')->toArray();
+    $todasCapacidades = array_unique(array_merge($capacidadesFijas, $capacidadesHistoricas));
+@endphp
+
 <!-- Modal Ajuste Masivo -->
 <div x-data="{
         open: false,
@@ -9,12 +19,14 @@
         isSubmitting: false,
         mesesVidaUtil: '',
         productoFormato: '',
+        productoCapacidad: '',
         bodegaIdProp: {{ $bodega ? $bodega->id : 'null' }},
 
             openModal(prodData, lotesData) {
                 this.producto = prodData;
                 this.mesesVidaUtil = prodData.constante_vencimiento_meses || '';
                 this.productoFormato = prodData.formato || '';
+                this.productoCapacidad = prodData.capacidad || '';
                 this.motivo = '';
                 this.isSubmitting = false;
                 
@@ -41,6 +53,14 @@
                 }));
 
                 this.open = true;
+            },
+
+            actualizarFormatoProducto(unidades) {
+                if (parseInt(unidades) > 1) {
+                    this.productoFormato = 'Display ' + unidades;
+                } else {
+                    this.productoFormato = 'Unidades';
+                }
             },
 
             getFormAction() {
@@ -103,7 +123,7 @@
          style="display: none;"
          x-transition>
          
-         <div class="bg-slate-900 border border-slate-700 w-full max-w-4xl rounded-2xl shadow-2xl flex flex-col overflow-hidden max-h-[90vh]" @click.outside="open = false">
+         <div class="bg-slate-900 border border-slate-700 w-full max-w-4xl rounded-2xl shadow-2xl flex flex-col overflow-hidden max-h-[90vh]">
             
             <div class="p-4 sm:p-6 border-b border-slate-800 flex justify-between items-center bg-slate-800/50">
                 <h3 class="text-lg font-bold text-white flex items-center gap-2">
@@ -119,16 +139,38 @@
                 <div x-show="producto" class="mb-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
                     <div>
                         <h4 class="text-xl font-black text-white" x-text="producto?.nombre"></h4>
-                        <div class="text-sm text-slate-400 mt-1 flex flex-wrap items-center gap-2">
-                            <span class="font-mono">SKU: <span x-text="producto?.sku"></span></span> 
-                            <span class="text-slate-600">|</span> 
-                            <label for="formato_input" class="text-slate-400">Formato:</label>
-                            <input list="formatos_datalist" id="formato_input" x-model="productoFormato" form="ajuste-masivo-form" name="formato" class="bg-slate-800 border-slate-700 text-slate-200 text-xs rounded px-2 py-1 w-32 focus:ring-indigo-500 focus:border-indigo-500" placeholder="Ej. Botella, Lata">
-                            <datalist id="formatos_datalist">
-                                <option value="Botella">Botella</option>
-                                <option value="Vidrio">Vidrio</option>
-                                <option value="Lata">Lata</option>
-                            </datalist>
+                        <div class="text-sm text-slate-400 mt-2 flex flex-col sm:flex-row sm:flex-wrap items-start sm:items-center gap-3">
+                            <span class="font-mono bg-slate-800 px-2 py-1 rounded text-xs">SKU: <span x-text="producto?.sku"></span></span> 
+                            
+                            <div class="flex items-center gap-1" x-data="{ manual: false }" x-init="$watch('productoFormato', v => { if(v && !{{ json_encode($todosFormatos) }}.includes(v)) manual = true; }); if(productoFormato && !{{ json_encode($todosFormatos) }}.includes(productoFormato)) manual = true;">
+                                <label for="formato_input" class="text-xs font-semibold text-slate-300">Formato:</label>
+                                <select x-show="!manual" id="formato_input" x-model="productoFormato" form="ajuste-masivo-form" name="formato" class="bg-slate-800 border-slate-700 text-slate-200 text-xs rounded px-2 py-1 w-28 focus:ring-indigo-500 focus:border-indigo-500">
+                                    <option value="">Seleccionar...</option>
+                                    @foreach($todosFormatos as $formatoOpt)
+                                        <option value="{{ $formatoOpt }}">{{ $formatoOpt }}</option>
+                                    @endforeach
+                                </select>
+                                <input x-show="manual" type="text" x-model="productoFormato" form="ajuste-masivo-form" name="formato" class="bg-slate-800 border-slate-700 text-slate-200 text-xs rounded px-2 py-1 w-28 focus:ring-indigo-500 focus:border-indigo-500" placeholder="Escribir...">
+                                <button type="button" @click="manual = !manual; if(!manual) productoFormato = ''" class="p-1 rounded bg-slate-700 hover:bg-slate-600 text-slate-300 transition-colors" title="Escribir manualmente">
+                                    <svg x-show="!manual" class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg>
+                                    <svg x-show="manual" class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path></svg>
+                                </button>
+                            </div>
+
+                            <div class="flex items-center gap-1" x-data="{ manual: false }" x-init="$watch('productoCapacidad', v => { if(v && !{{ json_encode($todasCapacidades) }}.includes(v)) manual = true; }); if(productoCapacidad && !{{ json_encode($todasCapacidades) }}.includes(productoCapacidad)) manual = true;">
+                                <label for="capacidad_input" class="text-xs font-semibold text-slate-300">Capacidad:</label>
+                                <select x-show="!manual" id="capacidad_input" x-model="productoCapacidad" form="ajuste-masivo-form" name="capacidad" class="bg-slate-800 border-slate-700 text-slate-200 text-xs rounded px-2 py-1 w-28 focus:ring-indigo-500 focus:border-indigo-500">
+                                    <option value="">Seleccionar...</option>
+                                    @foreach($todasCapacidades as $capOpt)
+                                        <option value="{{ $capOpt }}">{{ $capOpt }}</option>
+                                    @endforeach
+                                </select>
+                                <input x-show="manual" type="text" x-model="productoCapacidad" form="ajuste-masivo-form" name="capacidad" class="bg-slate-800 border-slate-700 text-slate-200 text-xs rounded px-2 py-1 w-28 focus:ring-indigo-500 focus:border-indigo-500" placeholder="Ej. 1.6 Litros">
+                                <button type="button" @click="manual = !manual; if(!manual) productoCapacidad = ''" class="p-1 rounded bg-slate-700 hover:bg-slate-600 text-slate-300 transition-colors" title="Escribir manualmente">
+                                    <svg x-show="!manual" class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg>
+                                    <svg x-show="manual" class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path></svg>
+                                </button>
+                            </div>
                         </div>
                     </div>
                     <div class="bg-indigo-900/30 border border-indigo-500/30 rounded-lg p-3">
@@ -184,7 +226,7 @@
                                     <!-- Empaque -->
                                     <div class="col-span-1 lg:col-span-2">
                                         <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Empaque</label>
-                                        <select x-model="lote.unidades_por_empaque" class="w-full bg-slate-900 border-slate-700 rounded-md text-sm text-slate-300 focus:ring-indigo-500 focus:border-indigo-500">
+                                        <select x-model="lote.unidades_por_empaque" @change="actualizarFormatoProducto(lote.unidades_por_empaque)" class="w-full bg-slate-900 border-slate-700 rounded-md text-sm text-slate-300 focus:ring-indigo-500 focus:border-indigo-500">
                                             <option value="6">Display (6)</option>
                                             <option value="12">Display (12)</option>
                                             <option value="24">Display (24)</option>

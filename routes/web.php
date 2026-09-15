@@ -42,10 +42,12 @@ Route::middleware('auth')->group(function () {
     Route::post('bodegas/{bodega}/quick-lote', [BodegaController::class, 'quickAddLote'])->name('bodegas.quick-lote');
     Route::post('bodegas/ajustar/{lote}', [BodegaController::class, 'ajustarStock'])->name('bodegas.ajustar');
     Route::post('bodegas/{bodega}/producto/{producto}/ajuste-masivo', [BodegaController::class, 'ajustarMasivo'])->name('bodegas.ajuste-masivo');
+    Route::post('productos/{producto}/ajuste-masivo', [BodegaController::class, 'ajustarMasivoGlobal'])->name('productos.ajuste-masivo');
     Route::post('bodegas/revertir/{ajuste}', [BodegaController::class, 'revertirAjuste'])->name('bodegas.revertir');
     
     // Máquinas Visicooler
     Route::resource('maquinas', MaquinaController::class)->only(['index', 'show', 'store', 'destroy']);
+    Route::post('maquinas/{maquina}/update-floor', [MaquinaController::class, 'updateFloor'])->name('maquinas.update-floor');
     Route::post('maquinas/slot/{slotId}/assign', [MaquinaController::class, 'assignProduct'])->name('maquinas.slot.assign');
     Route::post('maquinas/slot/{slotId}/unassign', [MaquinaController::class, 'unassignProduct'])->name('maquinas.slot.unassign');
     Route::post('maquinas/slot/{slotId}/add', [MaquinaController::class, 'addStock'])->name('maquinas.slot.add');

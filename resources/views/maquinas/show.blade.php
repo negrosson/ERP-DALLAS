@@ -1,134 +1,265 @@
 <x-app-layout>
     <x-slot name="header">
         <div class="flex items-center justify-between">
-            <h2 class="text-3xl font-light tracking-tight text-white flex items-center gap-3">
+            <h2 class="text-2xl sm:text-3xl font-light tracking-tight text-white flex items-center gap-3">
                 <a href="{{ route('maquinas.index') }}" class="text-slate-500 hover:text-cyan-400 transition-colors">
                     <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" /></svg>
                 </a>
                 <span class="w-1.5 h-8 bg-cyan-400 rounded-full shadow-[0_0_10px_rgba(34,211,238,0.8)]"></span>
-                {{ $maquina->nombre }}
+                <span class="truncate">{{ $maquina->nombre }}</span>
             </h2>
-            <div class="flex items-center gap-4">
-                <span class="px-3 py-1 bg-slate-800 text-xs text-slate-400 font-mono tracking-widest uppercase rounded border border-slate-700 hidden sm:inline-block">Planograma Visual</span>
-                <form method="POST" action="{{ route('maquinas.destroy', $maquina->id) }}" onsubmit="return confirm('¿Estás seguro de que deseas eliminar esta máquina por completo?');">
-                    @csrf
-                    @method('DELETE')
-                    <button type="submit" class="bg-rose-900/50 hover:bg-rose-600 text-rose-300 hover:text-white px-3 py-1.5 rounded-lg border border-rose-700/50 transition-colors text-sm font-bold flex items-center gap-2">
+            <div class="flex items-center gap-2">
+                <form method="POST" action="{{ route('maquinas.destroy', $maquina->id) }}" onsubmit="return confirm('¿Eliminar esta máquina?');">
+                    @csrf @method('DELETE')
+                    <button type="submit" class="bg-rose-900/50 hover:bg-rose-600 text-rose-300 hover:text-white px-3 py-1.5 rounded-lg border border-rose-700/50 transition-colors text-xs font-bold flex items-center gap-1">
                         <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                        Eliminar
+                        <span class="hidden sm:inline">Eliminar</span>
                     </button>
                 </form>
             </div>
         </div>
     </x-slot>
 
-    <div class="py-8 bg-black min-h-screen font-sans text-slate-200 relative overflow-x-auto">
-        <!-- Tron Grid -->
-        <div class="absolute inset-0 z-0 opacity-20" style="background-image: linear-gradient(rgba(34, 211, 238, 0.1) 1px, transparent 1px), linear-gradient(90deg, rgba(34, 211, 238, 0.1) 1px, transparent 1px); background-size: 50px 50px;"></div>
-        
-        <div class="mx-auto w-full px-4 sm:px-6 lg:px-8 relative z-10 min-w-max pb-20">
+    <div class="py-6 min-h-screen font-sans text-slate-200 relative" x-data="maquinaManager()">
+
+        <div class="mx-auto w-full px-4 sm:px-6 lg:px-8 relative z-10 pb-20 space-y-6">
             
             @if(session('success'))
-                <div class="mb-6 bg-teal-900/30 border border-teal-500/50 text-teal-300 px-4 py-3 rounded-xl backdrop-blur-md">
+                <div class="bg-teal-900/30 border border-teal-500/50 text-teal-300 px-4 py-3 rounded-xl backdrop-blur-md text-sm">
                     {{ session('success') }}
                 </div>
             @endif
             @if(session('error'))
-                <div class="mb-6 bg-rose-900/30 border border-rose-500/50 text-rose-300 px-4 py-3 rounded-xl backdrop-blur-md">
+                <div class="bg-rose-900/30 border border-rose-500/50 text-rose-300 px-4 py-3 rounded-xl backdrop-blur-md text-sm">
                     {{ session('error') }}
                 </div>
             @endif
-            @if($errors->any())
-                <div class="mb-6 bg-rose-900/30 border border-rose-500/50 text-rose-300 px-4 py-3 rounded-xl backdrop-blur-md">
-                    <ul>
-                        @foreach ($errors->all() as $error)
-                            <li>- {{ $error }}</li>
-                        @endforeach
-                    </ul>
-                </div>
-            @endif
 
-            <div class="flex gap-10">
-                @foreach($estructura as $seccionNum => $pisos)
-                    <div class="flex flex-col bg-slate-900/60 backdrop-blur-3xl border-2 border-slate-700/80 rounded-t-3xl rounded-b-md p-4 shadow-[0_0_50px_rgba(0,0,0,0.5)] flex-shrink-0">
-                        <div class="text-center mb-6 border-b border-slate-700/50 pb-2">
-                            <h3 class="text-xs font-mono tracking-widest text-cyan-500">SECCIÓN {{ $seccionNum }}</h3>
+            <!-- Toast de éxito AJAX -->
+            <div x-show="toast" x-transition x-cloak
+                 class="fixed top-4 right-4 z-[200] bg-teal-900/90 border border-teal-500/50 text-teal-300 px-4 py-3 rounded-xl backdrop-blur-md text-sm shadow-2xl">
+                <span x-text="toastMsg"></span>
+            </div>
+
+            @foreach($pisoConsolidado as $seccion => $pisos)
+                <!-- Header de Sección -->
+                <div class="flex items-center gap-3 pt-2">
+                    <div class="w-8 h-8 rounded-xl bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center shadow-[0_0_10px_rgba(34,211,238,0.2)]">
+                        <span class="text-xs font-mono text-cyan-400 font-bold">{{ $seccion }}</span>
+                    </div>
+                    <h3 class="text-sm font-mono tracking-widest text-cyan-500 uppercase">Sección {{ $seccion }}</h3>
+                </div>
+
+                @foreach($pisos as $piso => $productosEnPiso)
+                    <!-- TARJETA DE PISO -->
+                    <div class="bg-slate-900/60 backdrop-blur-xl border border-slate-700/60 rounded-2xl overflow-hidden shadow-lg transition-all duration-300"
+                         :class="editingFloor === '{{ $seccion }}-{{ $piso }}' ? 'border-cyan-500/50 shadow-[0_0_20px_rgba(34,211,238,0.15)]' : ''">
+                        
+                        <!-- Header del Piso -->
+                        <div class="flex items-center justify-between px-4 py-3 bg-slate-800/40 border-b border-slate-700/40">
+                            <div class="flex items-center gap-3">
+                                <div class="w-7 h-7 rounded-lg bg-slate-700/50 flex items-center justify-center">
+                                    <span class="text-[11px] font-mono text-slate-300 font-bold">P{{ $piso }}</span>
+                                </div>
+                                <span class="text-xs text-slate-400 font-medium tracking-wide">PISO {{ $piso }}</span>
+                                @php
+                                    $totalPiso = collect($productosEnPiso)->sum('cantidad_total');
+                                    $capPiso = collect($productosEnPiso)->sum('capacidad_total');
+                                    $fillPiso = $capPiso > 0 ? round(($totalPiso / $capPiso) * 100) : 0;
+                                    $displaysPiso = collect($productosEnPiso)->sum('displays_puestos');
+                                @endphp
+                                <span class="text-[10px] font-mono text-slate-500">{{ $totalPiso }}/{{ $capPiso }}</span>
+                            </div>
+
+                            <!-- Botón Lápiz -->
+                            <button @click="toggleEdit('{{ $seccion }}', '{{ $piso }}', {{ json_encode(collect($productosEnPiso)->filter(fn($p) => $p['catalogo_producto_id'])->map(fn($p) => ['catalogo_producto_id' => $p['catalogo_producto_id'], 'nombre' => $p['producto'] ? $p['producto']->nombre : '', 'cantidad' => $p['cantidad_total'], 'displays' => $p['displays_puestos']])->values()) }})"
+                                    class="p-2 rounded-xl transition-all duration-200"
+                                    :class="editingFloor === '{{ $seccion }}-{{ $piso }}' ? 'bg-cyan-500/20 text-cyan-400' : 'bg-slate-700/50 text-slate-400 hover:text-cyan-400 hover:bg-slate-700'">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg>
+                            </button>
                         </div>
 
-                        <div class="flex flex-col gap-6">
-                            @foreach($pisos as $pisoNum => $slots)
-                                <div class="bg-black/50 rounded-2xl p-4 border border-slate-800 shadow-inner relative">
-                                    <div class="absolute -left-2 top-1/2 -translate-y-1/2 text-[10px] text-slate-600 font-mono rotate-180" style="writing-mode: vertical-rl;">PISO {{ $pisoNum }}</div>
-                                    
-                                    <!-- Repisa base -->
-                                    <div class="absolute bottom-4 left-4 right-4 h-1 bg-gradient-to-r from-slate-700 via-slate-500 to-slate-700 rounded-full shadow-[0_2px_10px_rgba(255,255,255,0.1)]"></div>
+                        <!-- Barra de llenado -->
+                        <div class="w-full h-1 bg-slate-800">
+                            <div class="h-1 transition-all duration-500 rounded-r-full"
+                                 :class="{'bg-cyan-400 shadow-[0_0_8px_rgba(34,211,238,0.6)]': {{ $fillPiso }} > 50, 'bg-amber-400': {{ $fillPiso }} <= 50 && {{ $fillPiso }} > 20, 'bg-rose-400': {{ $fillPiso }} <= 20}"
+                                 style="width: {{ $fillPiso }}%"></div>
+                        </div>
 
-                                    <div class="flex gap-4 ml-4 pb-2">
-                                        @foreach($slots as $slot)
-                                            <div class="w-32 flex flex-col items-center justify-end relative group">
-                                                
-                                                @if($slot->producto)
-                                                    <!-- Bottle Representation -->
-                                                    <div class="h-24 w-10 border border-white/20 rounded-t-xl rounded-b-md flex items-end justify-center overflow-hidden relative shadow-[0_0_15px_rgba(255,255,255,0.05)] transition-transform group-hover:-translate-y-2"
-                                                         style="background: linear-gradient(180deg, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0) 20%, rgba(255,255,255,0.05) 100%);">
-                                                        <!-- Liquid fill based on actual count vs capacity -->
-                                                        @php $fill = $slot->capacidad_maxima > 0 ? ($slot->cantidad_actual / $slot->capacidad_maxima) * 100 : 0; @endphp
-                                                        <div class="absolute bottom-0 w-full bg-cyan-500/60 shadow-[0_0_15px_rgba(34,211,238,0.8)] transition-all duration-500" style="height: {{ $fill }}%;"></div>
-                                                    </div>
-                                                    <div class="text-[9px] text-slate-300 font-medium text-center leading-tight mt-2 truncate w-full px-1" title="{{ $slot->producto->nombre }}">
-                                                        {{ \Illuminate\Support\Str::limit($slot->producto->nombre, 20) }}
-                                                    </div>
-                                                    
-                                                    <!-- Action controls -->
-                                                    <div class="mt-2 flex items-center justify-center gap-1 bg-slate-900/80 rounded border border-slate-700 p-1">
-                                                        <form method="POST" action="{{ route('maquinas.slot.remove', $slot->id) }}">
-                                                            @csrf <button type="submit" class="w-5 h-5 flex items-center justify-center bg-slate-800 hover:bg-rose-500/20 text-rose-400 rounded transition-colors">-</button>
-                                                        </form>
-                                                        <span class="text-xs font-mono w-8 text-center">{{ $slot->cantidad_actual }}/{{ $slot->capacidad_maxima }}</span>
-                                                        <form method="POST" action="{{ route('maquinas.slot.add', $slot->id) }}">
-                                                            @csrf <button type="submit" class="w-5 h-5 flex items-center justify-center bg-slate-800 hover:bg-cyan-500/20 text-cyan-400 rounded transition-colors">+</button>
-                                                        </form>
-                                                    </div>
-
-                                                    <!-- Unassign -->
-                                                    <form method="POST" action="{{ route('maquinas.slot.unassign', $slot->id) }}" class="mt-1">
-                                                        @csrf <button type="submit" class="text-[10px] text-slate-500 hover:text-rose-400 underline">Quitar</button>
-                                                    </form>
-                                                @else
-                                                    <!-- Empty Slot -->
-                                                    <div class="h-24 w-10 border border-dashed border-slate-700 rounded-t-xl rounded-b-md flex items-center justify-center mb-2">
-                                                        <span class="text-[10px] text-slate-600">Vacío</span>
-                                                    </div>
-                                                    <div class="text-[9px] text-slate-500 mb-2">Max: {{ $slot->capacidad_maxima }} bot.</div>
-                                                    
-                                                    <!-- Assign Form -->
-                                                    <form method="POST" action="{{ route('maquinas.slot.assign', $slot->id) }}" class="flex flex-col w-full" x-data="{ search: '' }">
-                                                        @csrf
-                                                        <div class="relative w-full mb-1">
-                                                            <input type="text" x-model="search" placeholder="Buscar..." class="w-full text-[9px] bg-slate-900 border-slate-700 text-slate-200 rounded py-1 pl-5 pr-1 focus:border-cyan-500 focus:ring-cyan-500">
-                                                            <svg class="w-2.5 h-2.5 text-slate-500 absolute left-1.5 top-1.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
-                                                        </div>
-                                                        <select name="catalogo_producto_id" required class="w-full text-[10px] bg-slate-800 border-slate-700 text-slate-200 rounded py-1 px-1 mb-1">
-                                                            <option value="">Asignar...</option>
-                                                            @foreach($productos as $prod)
-                                                                <option value="{{ $prod->id }}" x-show="search === '' || $el.innerText.toLowerCase().includes(search.toLowerCase())" x-bind:hidden="search !== '' && !$el.innerText.toLowerCase().includes(search.toLowerCase())" x-bind:disabled="search !== '' && !$el.innerText.toLowerCase().includes(search.toLowerCase())">{{ $prod->nombre }}</option>
-                                                            @endforeach
-                                                        </select>
-                                                        <button type="submit" class="bg-cyan-600/50 hover:bg-cyan-500 text-white text-[10px] rounded py-1 transition-colors">Guardar</button>
-                                                    </form>
-                                                @endif
-
-                                            </div>
-                                        @endforeach
+                        <!-- Contenido: Productos en el piso (Vista lectura) -->
+                        <div class="px-4 py-3 space-y-2" x-show="editingFloor !== '{{ $seccion }}-{{ $piso }}'">
+                            @foreach($productosEnPiso as $prod)
+                                @if($prod['catalogo_producto_id'])
+                                    <div class="flex items-center justify-between py-1.5 border-b border-slate-800/50 last:border-0">
+                                        <div class="flex items-center gap-3 min-w-0 flex-1">
+                                            <div class="w-2 h-2 rounded-full bg-cyan-400/60 shrink-0"></div>
+                                            <span class="text-sm text-slate-200 truncate">{{ $prod['producto']->nombre ?? 'Sin nombre' }}</span>
+                                        </div>
+                                        <div class="flex items-center gap-3 shrink-0">
+                                            @if($prod['displays_puestos'] > 0)
+                                                <span class="text-[10px] font-mono bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 px-1.5 py-0.5 rounded">{{ $prod['displays_puestos'] }}D</span>
+                                            @endif
+                                            <span class="text-sm font-mono text-cyan-400 font-bold">{{ $prod['cantidad_total'] }}</span>
+                                        </div>
                                     </div>
-                                </div>
+                                @else
+                                    <div class="flex items-center gap-3 py-1.5 text-slate-600">
+                                        <div class="w-2 h-2 rounded-full bg-slate-700 shrink-0"></div>
+                                        <span class="text-sm italic">Sin asignar</span>
+                                    </div>
+                                @endif
                             @endforeach
                         </div>
 
+                        <!-- Contenido: Formulario edición (Vista edición) -->
+                        <div class="px-4 py-4 space-y-3 bg-slate-900/80" x-show="editingFloor === '{{ $seccion }}-{{ $piso }}'" x-cloak x-transition>
+                            
+                            <template x-for="(prod, idx) in editProducts" :key="idx">
+                                <div class="bg-slate-800/60 rounded-xl p-3 border border-slate-700/40 space-y-3 relative">
+                                    <!-- Botón eliminar producto -->
+                                    <button @click="editProducts.splice(idx, 1)" 
+                                            x-show="editProducts.length > 1"
+                                            class="absolute top-2 right-2 p-1 rounded-lg text-rose-400/60 hover:text-rose-400 hover:bg-rose-900/30 transition-colors">
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                                    </button>
+
+                                    <!-- Selector de producto -->
+                                    <div>
+                                        <label class="text-[10px] text-slate-500 font-mono tracking-widest uppercase mb-1 block">Producto</label>
+                                        <select x-model="prod.catalogo_producto_id" 
+                                                class="w-full text-sm bg-slate-900 border border-slate-600 text-slate-200 rounded-lg py-2 px-3 focus:border-cyan-500 focus:ring-cyan-500">
+                                            <option value="">Seleccionar...</option>
+                                            @foreach($productos as $p)
+                                                <option value="{{ $p->id }}">{{ $p->nombre }}</option>
+                                            @endforeach
+                                        </select>
+                                    </div>
+                                    
+                                    <!-- Cantidad + Displays en una fila -->
+                                    <div class="grid grid-cols-2 gap-3">
+                                        <div>
+                                            <label class="text-[10px] text-slate-500 font-mono tracking-widest uppercase mb-1 block">Cantidad</label>
+                                            <input type="number" x-model.number="prod.cantidad" min="0" 
+                                                   class="w-full text-sm bg-slate-900 border border-slate-600 text-slate-200 rounded-lg py-2 px-3 focus:border-cyan-500 focus:ring-cyan-500 font-mono text-center"
+                                                   placeholder="0">
+                                        </div>
+                                        <div>
+                                            <label class="text-[10px] text-slate-500 font-mono tracking-widest uppercase mb-1 block">Displays</label>
+                                            <input type="number" x-model.number="prod.displays" min="0" 
+                                                   class="w-full text-sm bg-slate-900 border border-slate-600 text-slate-200 rounded-lg py-2 px-3 focus:border-cyan-500 focus:ring-cyan-500 font-mono text-center"
+                                                   placeholder="0">
+                                        </div>
+                                    </div>
+                                </div>
+                            </template>
+
+                            <!-- Botón agregar producto -->
+                            <button @click="editProducts.push({catalogo_producto_id: '', cantidad: 0, displays: 0})"
+                                    class="w-full py-2.5 border-2 border-dashed border-slate-600 hover:border-cyan-500/50 rounded-xl text-slate-500 hover:text-cyan-400 text-sm font-medium transition-all duration-200 flex items-center justify-center gap-2">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path></svg>
+                                Agregar otro producto
+                            </button>
+
+                            <!-- Acciones -->
+                            <div class="flex gap-3 pt-1">
+                                <button @click="editingFloor = null" 
+                                        class="flex-1 py-2.5 bg-slate-700/50 hover:bg-slate-700 text-slate-300 rounded-xl text-sm font-medium transition-colors">
+                                    Cancelar
+                                </button>
+                                <button @click="saveFloor()" 
+                                        :disabled="saving"
+                                        class="flex-1 py-2.5 bg-cyan-600 hover:bg-cyan-500 text-white rounded-xl text-sm font-bold transition-all shadow-[0_0_15px_rgba(34,211,238,0.3)] disabled:opacity-50 flex items-center justify-center gap-2">
+                                    <svg x-show="saving" class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>
+                                    <span x-text="saving ? 'Guardando...' : '✓ Guardar'"></span>
+                                </button>
+                            </div>
+                        </div>
                     </div>
                 @endforeach
-            </div>
-
+            @endforeach
         </div>
     </div>
+
+    <script>
+    function maquinaManager() {
+        return {
+            editingFloor: null,
+            editSeccion: null,
+            editPiso: null,
+            editProducts: [],
+            saving: false,
+            toast: false,
+            toastMsg: '',
+
+            toggleEdit(seccion, piso, productosActuales) {
+                const key = seccion + '-' + piso;
+                if (this.editingFloor === key) {
+                    this.editingFloor = null;
+                    return;
+                }
+                this.editingFloor = key;
+                this.editSeccion = parseInt(seccion);
+                this.editPiso = parseInt(piso);
+                
+                // Clonar productos actuales o crear uno vacío
+                if (productosActuales && productosActuales.length > 0) {
+                    this.editProducts = productosActuales.map(p => ({
+                        catalogo_producto_id: String(p.catalogo_producto_id),
+                        cantidad: p.cantidad || 0,
+                        displays: p.displays || 0,
+                    }));
+                } else {
+                    this.editProducts = [{catalogo_producto_id: '', cantidad: 0, displays: 0}];
+                }
+            },
+
+            async saveFloor() {
+                // Filtrar productos vacíos
+                const productosValidos = this.editProducts.filter(p => p.catalogo_producto_id);
+                if (productosValidos.length === 0) {
+                    alert('Selecciona al menos un producto');
+                    return;
+                }
+
+                this.saving = true;
+                try {
+                    const response = await fetch('{{ route("maquinas.update-floor", $maquina->id) }}', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
+                            'Accept': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            seccion: this.editSeccion,
+                            piso: this.editPiso,
+                            productos: productosValidos,
+                        }),
+                    });
+
+                    const data = await response.json();
+                    
+                    if (data.success) {
+                        this.showToast('✓ Piso ' + this.editPiso + ' actualizado');
+                        this.editingFloor = null;
+                        // Recargar la página para mostrar datos actualizados
+                        setTimeout(() => window.location.reload(), 600);
+                    } else {
+                        alert(data.error || 'Error al guardar');
+                    }
+                } catch (err) {
+                    alert('Error de conexión: ' + err.message);
+                } finally {
+                    this.saving = false;
+                }
+            },
+
+            showToast(msg) {
+                this.toastMsg = msg;
+                this.toast = true;
+                setTimeout(() => this.toast = false, 2500);
+            }
+        }
+    }
+    </script>
 </x-app-layout>

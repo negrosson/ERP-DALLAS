@@ -31,7 +31,7 @@
 
         <div x-data="{ sidebarOpen: false }" class="relative z-10 flex h-screen overflow-hidden bg-transparent">
             <!-- Overlay para móvil -->
-            <div x-show="sidebarOpen" x-transition.opacity class="fixed inset-0 z-40 bg-slate-950/80 backdrop-blur-sm md:hidden" @click="sidebarOpen = false" style="display: none;"></div>
+            <div x-show="sidebarOpen" x-transition.opacity.duration.75ms class="fixed inset-0 z-40 bg-slate-950/80 backdrop-blur-sm md:hidden" @click="sidebarOpen = false" style="display: none;"></div>
 
             <!-- Sidebar -->
             @include('layouts.sidebar')
@@ -88,17 +88,17 @@
         </script>
 
         <!-- Botón Flotante Buscador Global (Ctrl+K) -->
-        <div x-data="{}" class="fixed bottom-6 right-6 z-[99]">
+        <div x-data="{}" class="fixed bottom-24 sm:bottom-6 right-6 z-[99]">
             <button
                 @click="$dispatch('open-search-modal')"
                 @keydown.ctrl.k.window.prevent="$dispatch('open-search-modal')"
                 title="Búsqueda global (Ctrl+K)"
-                class="group flex items-center gap-3 bg-slate-800 hover:bg-indigo-600 text-slate-300 hover:text-white border border-slate-700 hover:border-indigo-500 shadow-2xl shadow-black/50 rounded-2xl px-4 py-3 transition-all duration-300 hover:scale-105 hover:shadow-indigo-500/30"
+                class="group flex items-center gap-3 bg-slate-800 hover:bg-indigo-600 text-slate-300 hover:text-white border border-slate-700 hover:border-indigo-500 shadow-2xl shadow-black/50 rounded-full sm:rounded-2xl p-3 sm:px-4 sm:py-3 transition-all duration-300 hover:scale-105 hover:shadow-indigo-500/30"
             >
                 <svg class="w-5 h-5 transition-transform duration-300 group-hover:rotate-12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                 </svg>
-                <span class="text-sm font-semibold tracking-wide">¿Buscas algo?</span>
+                <span class="hidden sm:inline text-sm font-semibold tracking-wide">¿Buscas algo?</span>
                 <span class="hidden sm:flex items-center gap-1 text-[10px] font-mono text-slate-500 group-hover:text-indigo-300 transition-colors bg-slate-900/50 group-hover:bg-indigo-900/50 border border-slate-700 group-hover:border-indigo-700 rounded px-1.5 py-0.5">
                     <span>Ctrl</span><span>+</span><span>K</span>
                 </span>

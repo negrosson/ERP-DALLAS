@@ -17,6 +17,7 @@ class MaquinaSlot extends Model
         'catalogo_producto_id',
         'capacidad_maxima',
         'cantidad_actual',
+        'displays_puestos',
     ];
 
     public function maquina()

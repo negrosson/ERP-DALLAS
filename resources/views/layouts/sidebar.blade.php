@@ -1,4 +1,4 @@
-<aside :class="sidebarOpen ? 'translate-x-0' : '-translate-x-full'" class="fixed inset-y-0 left-0 z-50 flex flex-col w-72 flex-shrink-0 h-screen px-5 py-8 overflow-y-auto bg-slate-900 border-r border-slate-800 shadow-2xl transition-transform duration-200 ease-out md:relative md:translate-x-0">
+<aside :class="sidebarOpen ? 'translate-x-0' : '-translate-x-full'" class="-translate-x-full fixed inset-y-0 left-0 z-50 flex flex-col w-72 flex-shrink-0 h-screen px-5 py-8 overflow-y-auto bg-slate-900 border-r border-slate-800 shadow-2xl transition-transform duration-75 ease-out md:duration-200 md:relative md:translate-x-0" x-cloak>
     
     <!-- Logo & Branding -->
     <div class="flex items-center justify-between mb-10 px-2">
@@ -20,7 +20,17 @@
     </div>
 
     <div class="flex flex-col justify-between flex-1">
-        <nav class="space-y-1.5" @click="if($event.target.closest('a')) sidebarOpen = false">
+        <nav class="space-y-1.5" @click="
+            let a = $event.target.closest('a');
+            if (a) {
+                sidebarOpen = false;
+                if (!a.hasAttribute('target') && !$event.ctrlKey && !$event.metaKey && !$event.shiftKey) {
+                    $event.preventDefault();
+                    // Show a global loading state or just wait for the sidebar to close
+                    setTimeout(() => { window.location.href = a.href; }, 150);
+                }
+            }
+        ">
             
             <!-- Dashboard -->
             <a href="{{ route('dashboard') }}" class="flex items-center px-4 py-3 rounded-xl transition-all duration-200 group {{ request()->routeIs('dashboard') ? 'bg-teal-900/50 text-teal-400 shadow-[inset_4px_0_0_0_rgba(20,184,166,1)]' : 'text-slate-400 hover:bg-slate-800/50 hover:text-slate-200' }}">

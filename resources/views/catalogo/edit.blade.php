@@ -751,23 +751,20 @@
                     // Let's modify the CatalogoController temporarily to return JSON for AJAX, or handle it via a generic response check.
                 })
                 .then(data => {
-                    // Si el servidor nos dio ok
-                    showToast('Los cambios del producto han sido guardados y registrados en la base de datos.', 'success');
+                    // Redirigir rápidamente a la vista principal
+                    window.location.href = "{{ route('catalogo.index') }}";
                 })
                 .catch(error => {
                     if(error.errors) {
                         const firstError = Object.values(error.errors)[0][0];
                         showToast(firstError, 'error');
+                        // Solo rehabilitamos el botón si hubo un error de validación
+                        submitBtn.disabled = false;
+                        submitBtn.classList.remove('opacity-50');
+                        saveLoader.classList.add('hidden');
                     } else {
-                        // En caso de que el controlador haga un Redirect normal y fetch lo intercepte
-                        // Laravel redirige, lo cual significa success en este contexto (status 200 de la página de destino).
-                        showToast('Los cambios del producto han sido guardados.', 'success');
+                        window.location.href = "{{ route('catalogo.index') }}";
                     }
-                })
-                .finally(() => {
-                    submitBtn.disabled = false;
-                    submitBtn.classList.remove('opacity-50');
-                    saveLoader.classList.add('hidden');
                 });
             });
         });

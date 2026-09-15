@@ -167,7 +167,6 @@ class CatalogoController extends Controller
         $validated = $request->validate([
             'nombre' => 'required|string|max:255',
             'sku' => 'nullable|string|max:255|unique:catalogo_productos,sku',
-            'marca' => 'nullable|string|max:255',
             'formato' => 'nullable|string|max:255',
             'capacidad' => 'nullable|string|max:255',
         ]);

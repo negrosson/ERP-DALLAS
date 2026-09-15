@@ -10,7 +10,7 @@
             <div class="overflow-hidden bg-white shadow-sm sm:rounded-lg">
                 <div class="p-6 text-gray-900 border-b border-gray-200">
                     
-                    <form method="POST" action="{{ route('catalogo.store') }}">
+                    <form id="create-catalog-form" method="POST" action="{{ route('catalogo.store') }}" x-data="{ isSubmitting: false }" @submit="isSubmitting = true">
                         @csrf
 
                         <div class="grid grid-cols-1 gap-6 md:grid-cols-2">
@@ -272,9 +272,10 @@
                             <a href="{{ route('catalogo.index') }}" class="inline-flex items-center px-4 py-2 text-xs font-semibold tracking-widest text-gray-700 uppercase transition duration-150 ease-in-out bg-white border border-gray-300 rounded-md shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 disabled:opacity-25">
                                 Cancelar
                             </a>
-                            <x-primary-button class="ml-3">
-                                {{ __('Guardar Producto') }}
-                            </x-primary-button>
+                            <button type="submit" :disabled="isSubmitting" class="ml-3 inline-flex items-center px-4 py-2 bg-indigo-600 border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-indigo-500 focus:bg-indigo-500 active:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition ease-in-out duration-150 disabled:opacity-50">
+                                <span x-show="isSubmitting" class="animate-spin inline-block w-4 h-4 mr-2 border-2 border-white/30 border-t-white rounded-full"></span>
+                                <span x-text="isSubmitting ? 'Guardando...' : 'Guardar Producto'"></span>
+                            </button>
                         </div>
                     </form>
 
