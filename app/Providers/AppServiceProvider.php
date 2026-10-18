@@ -15,7 +15,11 @@ class AppServiceProvider extends ServiceProvider
     public function register(): void
     {
         $this->app->bind(\App\Contracts\OcrProviderInterface::class, function ($app) {
-            $provider = env('OCR_PROVIDER', 'mock');
+            $provider = config('services.ocr.provider', env('OCR_PROVIDER', 'gemini'));
+
+            if ($provider === 'gemini') {
+                return new \App\Services\Ocr\GeminiOcrProvider();
+            }
 
             if ($provider === 'mindee') {
                 return new \App\Services\Ocr\MindeeOcrProvider();

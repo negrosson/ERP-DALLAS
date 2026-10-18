@@ -31,6 +31,11 @@ class MapeoCodigo extends Model
         return $this->belongsTo(CatalogoProducto::class, 'catalogo_producto_id');
     }
 
+    public function catalogoProducto(): BelongsTo
+    {
+        return $this->belongsTo(CatalogoProducto::class, 'catalogo_producto_id');
+    }
+
     // ── Helpers ─────────────────────────────────────────────────
 
     /**

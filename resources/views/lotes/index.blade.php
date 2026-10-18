@@ -38,8 +38,7 @@
                         <div class="relative">
                             <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                                 <svg class="h-5 w-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
-                            </div>
-                            <x-text-input id="search" name="search" type="text" class="block w-full pl-10 border-slate-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-lg shadow-sm" :value="request('search')" placeholder="Ej: Arroz, Bebida..." autocomplete="off" />
+                            <input id="search" name="search" type="text" class="block w-full pl-10 bg-slate-900 border-slate-700 text-slate-200 placeholder-slate-500 focus:border-indigo-500 focus:ring-indigo-500 rounded-lg shadow-sm text-sm" value="{{ request('search') }}" placeholder="Ej: Arroz, Bebida, CCU..." autocomplete="off" />
                         </div>
                     </div>
                     

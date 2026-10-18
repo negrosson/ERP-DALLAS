@@ -35,4 +35,10 @@ return [
         ],
     ],
 
+    'ocr' => [
+        'provider' => env('OCR_PROVIDER', 'gemini'),
+        'gemini_api_key' => env('GEMINI_API_KEY'),
+        'gemini_model' => env('GEMINI_MODEL', 'gemini-3.8-flash'),
+    ],
+
 ];

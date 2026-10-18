@@ -17,6 +17,7 @@ class RecepcionDetalle extends Model
         'recepcion_id',
         'catalogo_producto_id',
         'codigo_proveedor_usado',
+        'descripcion_proveedor',
         'cantidad',
         'precio_unitario',
         'fecha_elaboracion',

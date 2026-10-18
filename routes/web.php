@@ -58,6 +58,9 @@ Route::middleware('auth')->group(function () {
     Route::post('recepciones/manual', [RecepcionController::class, 'storeManual'])->name('recepciones.manual.store');
     
     Route::get('recepciones/scanner', [RecepcionController::class, 'scanner'])->name('recepciones.scanner');
+    Route::get('recepciones/scanner/buscar-producto', [RecepcionController::class, 'buscarProductoScanner'])->name('recepciones.scanner.buscar');
+    Route::post('recepciones/scanner/guardar', [RecepcionController::class, 'guardarScanner'])->name('recepciones.scanner.guardar');
+    Route::get('recepciones/check-factura', [RecepcionController::class, 'checkFacturaExistente'])->name('recepciones.check-factura');
     Route::get('recepciones/ocr', [RecepcionController::class, 'ocr'])->name('recepciones.ocr');
     Route::post('recepciones/ocr-process', [RecepcionController::class, 'processOcr'])->name('recepciones.ocr.process');
     

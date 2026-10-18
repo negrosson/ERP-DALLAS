@@ -28,45 +28,118 @@ class DashboardController extends Controller
             ->where('lotes_stock.cantidad_disponible', '>', 0)
             ->sum(\Illuminate\Support\Facades\DB::raw('recepcion_detalles.precio_unitario * lotes_stock.cantidad_disponible'));
 
-        // Alertas de Vencimiento (Listado combinado para la tabla FEFO)
-        $lotesVencidos = LoteStock::with(['producto:id,nombre', 'bodega:id,nombre'])
+        // Alertas de Vencimiento (Compatible con SQLite y MySQL)
+        $lotesVencidos = LoteStock::with(['producto:id,sku,nombre,formato,capacidad', 'bodega:id,codigo,nombre'])
             ->where('cantidad_disponible', '>', 0)
             ->where('fecha_vencimiento', '<', now()->startOfDay())
             ->orderBy('fecha_vencimiento', 'asc')
             ->take(10)
             ->get();
 
-        $lotesPorVencer = LoteStock::with(['producto:id,nombre', 'bodega:id,nombre'])
-            ->select('lotes_stock.*')
-            ->join('catalogo_productos', 'lotes_stock.catalogo_producto_id', '=', 'catalogo_productos.id')
-            ->where('lotes_stock.cantidad_disponible', '>', 0)
-            ->where('lotes_stock.fecha_vencimiento', '>=', now()->startOfDay())
-            ->whereRaw('lotes_stock.fecha_vencimiento <= DATE_ADD(CURDATE(), INTERVAL IFNULL(catalogo_productos.dias_alerta_vencimiento, 30) DAY)')
-            ->orderBy('lotes_stock.fecha_vencimiento', 'asc')
+        $lotesPorVencer = LoteStock::with(['producto:id,sku,nombre,formato,capacidad', 'bodega:id,codigo,nombre'])
+            ->where('cantidad_disponible', '>', 0)
+            ->where('fecha_vencimiento', '>=', now()->startOfDay())
+            ->where('fecha_vencimiento', '<=', now()->addDays(30)->endOfDay())
+            ->orderBy('fecha_vencimiento', 'asc')
             ->take(10)
             ->get();
 
-        // Todos los counts en una sola query
+        // Todos los counts de alertas
         $now = now();
-        $counts = LoteStock::where('cantidad_disponible', '>', 0)
+        $counts = [
+            'critico' => LoteStock::where('cantidad_disponible', '>', 0)->where('fecha_vencimiento', '<', $now->copy()->addDays(7)->endOfDay())->count(),
+            'alto'    => LoteStock::where('cantidad_disponible', '>', 0)->whereBetween('fecha_vencimiento', [$now->copy()->addDays(7)->endOfDay(), $now->copy()->addDays(14)->endOfDay()])->count(),
+            'medio'   => LoteStock::where('cantidad_disponible', '>', 0)->whereBetween('fecha_vencimiento', [$now->copy()->addDays(14)->endOfDay(), $now->copy()->addDays(21)->endOfDay()])->count(),
+            'bajo'    => LoteStock::where('cantidad_disponible', '>', 0)->whereBetween('fecha_vencimiento', [$now->copy()->addDays(21)->endOfDay(), $now->copy()->addDays(30)->endOfDay()])->count(),
+        ];
+
+        // Sincronización detallada por Bodega (Warehouse Hub)
+        $bodegasDetalle = Bodega::where('activa', true)
+            ->get()
+            ->map(function ($bodega) {
+                $lotes = LoteStock::where('bodega_id', $bodega->id)
+                    ->where('cantidad_disponible', '>', 0)
+                    ->get();
+
+                $unidades = (float)$lotes->sum('cantidad_disponible');
+                $lotesCount = $lotes->count();
+
+                $valor = \Illuminate\Support\Facades\DB::table('lotes_stock')
+                    ->join('recepcion_detalles', 'lotes_stock.recepcion_detalle_id', '=', 'recepcion_detalles.id')
+                    ->where('lotes_stock.bodega_id', $bodega->id)
+                    ->where('lotes_stock.cantidad_disponible', '>', 0)
+                    ->sum(\Illuminate\Support\Facades\DB::raw('recepcion_detalles.precio_unitario * lotes_stock.cantidad_disponible')) ?? 0;
+
+                $now = now()->startOfDay();
+                $vencidosCount = $lotes->filter(fn($l) => $l->fecha_vencimiento && $l->fecha_vencimiento->startOfDay()->lt($now))->count();
+                $criticosCount = $lotes->filter(fn($l) => $l->fecha_vencimiento && $l->fecha_vencimiento->startOfDay()->gte($now) && $l->fecha_vencimiento->startOfDay()->lte($now->copy()->addDays(30)))->count();
+
+                return [
+                    'id' => $bodega->id,
+                    'nombre' => $bodega->nombre,
+                    'codigo' => $bodega->codigo,
+                    'es_refrigerada' => (bool)$bodega->es_refrigerada,
+                    'unidades' => $unidades,
+                    'lotes_count' => $lotesCount,
+                    'valor' => (float)$valor,
+                    'vencidos_count' => $vencidosCount,
+                    'criticos_count' => $criticosCount,
+                ];
+            });
+
+        // Radar FEFO Interactivo: Todos los lotes en riesgo o próximos a vencer con metadata completa
+        $radarQuery = LoteStock::with(['producto:id,sku,nombre,formato,capacidad', 'bodega:id,codigo,nombre'])
+            ->where('cantidad_disponible', '>', 0)
             ->whereNotNull('fecha_vencimiento')
-            ->selectRaw("
-                SUM(CASE WHEN fecha_vencimiento < ? THEN 1 ELSE 0 END) as critico,
-                SUM(CASE WHEN fecha_vencimiento >= ? AND fecha_vencimiento <= ? THEN 1 ELSE 0 END) as alto,
-                SUM(CASE WHEN fecha_vencimiento > ? AND fecha_vencimiento <= ? THEN 1 ELSE 0 END) as medio,
-                SUM(CASE WHEN fecha_vencimiento > ? AND fecha_vencimiento <= ? THEN 1 ELSE 0 END) as bajo
-            ", [
-                $now->copy()->addDays(7)->endOfDay(),
-                $now->copy()->addDays(7)->endOfDay(),  $now->copy()->addDays(14)->endOfDay(),
-                $now->copy()->addDays(14)->endOfDay(), $now->copy()->addDays(21)->endOfDay(),
-                $now->copy()->addDays(21)->endOfDay(), $now->copy()->addDays(30)->endOfDay(),
-            ])
-            ->first()
-            ->toArray();
+            ->orderBy('fecha_vencimiento', 'asc')
+            ->get();
+
+        $lotesRadar = $radarQuery->map(function ($lote) {
+            $now = now()->startOfDay();
+            $dias = $lote->fecha_vencimiento ? (int)$now->diffInDays($lote->fecha_vencimiento->startOfDay(), false) : 999;
+
+            $filtro = 'optimo';
+            if ($dias < 0) {
+                $filtro = 'vencido';
+            } elseif ($dias <= 7) {
+                $filtro = 'critico';
+            } elseif ($dias <= 30) {
+                $filtro = 'alerta30';
+            } elseif ($dias <= 60) {
+                $filtro = 'alerta60';
+            } elseif ($dias <= 90) {
+                $filtro = 'alerta90';
+            }
+
+            return [
+                'id' => $lote->id,
+                'producto_nombre' => $lote->producto->nombre ?? 'Producto Desconocido',
+                'producto_sku' => $lote->producto->sku ?? '-',
+                'formato' => $lote->producto->formato ?? 'Lata',
+                'capacidad' => $lote->producto->capacidad ?? '350 cc',
+                'bodega_id' => $lote->bodega_id,
+                'bodega_codigo' => $lote->bodega->codigo ?? '-',
+                'bodega_nombre' => $lote->bodega->nombre ?? '-',
+                'cantidad' => (float)$lote->cantidad_disponible,
+                'fecha_vencimiento' => $lote->fecha_vencimiento ? $lote->fecha_vencimiento->format('d/m/Y') : '-',
+                'fecha_vencimiento_iso' => $lote->fecha_vencimiento ? $lote->fecha_vencimiento->format('Y-m-d') : '',
+                'dias_restantes' => $dias,
+                'filtro' => $filtro,
+            ];
+        });
+
+        $radarCounts = [
+            'todos' => $lotesRadar->count(),
+            'vencido' => $lotesRadar->where('filtro', 'vencido')->count(),
+            'critico' => $lotesRadar->where('filtro', 'critico')->count(),
+            'alerta30' => $lotesRadar->where('filtro', 'alerta30')->count(),
+            'alerta60' => $lotesRadar->where('filtro', 'alerta60')->count(),
+            'alerta90' => $lotesRadar->where('filtro', 'alerta90')->count(),
+            'optimo' => $lotesRadar->where('filtro', 'optimo')->count(),
+        ];
 
         // Últimas Ventas
         $ultimasVentas = Venta::with(['bodega', 'user'])->latest()->take(5)->get();
-        
         $totalVentasMonto = Venta::sum('total');
 
         // Facturas esperando revisión de fechas
@@ -116,14 +189,23 @@ class DashboardController extends Controller
         }
 
         // Chart: Productos por vencer en los próximos 90 días (agrupados por mes)
+        $mesesEspanol = [
+            'Jan' => 'Ene', 'Feb' => 'Feb', 'Mar' => 'Mar', 'Apr' => 'Abr',
+            'May' => 'May', 'Jun' => 'Jun', 'Jul' => 'Jul', 'Aug' => 'Ago',
+            'Sep' => 'Sep', 'Oct' => 'Oct', 'Nov' => 'Nov', 'Dec' => 'Dic',
+        ];
+
         $vencimientosPorMes = collect();
-        for ($i = 0; $i < 3; $i++) {
+        for ($i = 0; $i < 4; $i++) {
             $start = now()->addMonths($i)->startOfMonth();
             $end   = now()->addMonths($i)->endOfMonth();
             $count = LoteStock::where('cantidad_disponible', '>', 0)
                 ->whereBetween('fecha_vencimiento', [$start, $end])
                 ->count();
-            $vencimientosPorMes->push(['mes' => $start->format('M Y'), 'count' => $count]);
+            
+            $mesIngles = $start->format('M');
+            $mesTraducido = ($mesesEspanol[$mesIngles] ?? $mesIngles) . ' ' . $start->format('Y');
+            $vencimientosPorMes->push(['mes' => $mesTraducido, 'count' => $count]);
         }
         $chartVencLabels = $vencimientosPorMes->pluck('mes')->values()->toArray();
         $chartVencData   = $vencimientosPorMes->pluck('count')->values()->toArray();
@@ -147,7 +229,10 @@ class DashboardController extends Controller
             'chartVentasLabels',
             'chartVentasData',
             'chartVencLabels',
-            'chartVencData'
+            'chartVencData',
+            'bodegasDetalle',
+            'lotesRadar',
+            'radarCounts'
         ));
     }
 }

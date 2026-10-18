@@ -169,14 +169,49 @@ class CatalogoController extends Controller
             'sku' => 'nullable|string|max:255|unique:catalogo_productos,sku',
             'formato' => 'nullable|string|max:255',
             'capacidad' => 'nullable|string|max:255',
+            'precio_compra_ref' => 'nullable|numeric|min:0',
+            'precio_venta' => 'nullable|numeric|min:0',
+            'constante_vencimiento_meses' => 'nullable|integer|min:0',
+            'proveedor_id' => 'nullable|exists:proveedores,id',
+            'codigo_proveedor' => 'nullable|string|max:50',
         ]);
 
-        $producto = CatalogoProducto::create(array_merge($validated, [
+        // Generar SKU limpio si viene vacío
+        if (empty($validated['sku'])) {
+            $prefix = strtoupper(substr(preg_replace('/[^A-Za-z0-9]/', '', $validated['nombre']), 0, 3));
+            $sku = ($prefix ?: 'PRD') . '-' . strtoupper(substr(uniqid(), -4));
+            $validated['sku'] = $sku;
+        }
+
+        $producto = CatalogoProducto::create([
+            'nombre' => $validated['nombre'],
+            'sku' => $validated['sku'],
+            'formato' => $validated['formato'] ?? 'Lata',
+            'capacidad' => $validated['capacidad'] ?? '350 cc',
+            'unidad_medida' => 'UN',
+            'precio_compra_ref' => $validated['precio_compra_ref'] ?? 0,
+            'precio_venta' => $validated['precio_venta'] ?? 0,
+            'constante_vencimiento_meses' => $validated['constante_vencimiento_meses'] ?? 6,
             'activo' => true,
-        ]));
+        ]);
+
+        // Registrar mapeo automático si se proporcionó código de proveedor
+        if (!empty($validated['proveedor_id']) && !empty($validated['codigo_proveedor'])) {
+            \App\Models\MapeoCodigo::updateOrCreate(
+                [
+                    'proveedor_id' => (int)$validated['proveedor_id'],
+                    'codigo_proveedor' => $validated['codigo_proveedor'],
+                ],
+                [
+                    'catalogo_producto_id' => $producto->id,
+                    'descripcion_proveedor' => $producto->nombre,
+                ]
+            );
+        }
 
         return response()->json([
             'success' => true,
+            'message' => 'Producto creado e incorporado al catálogo exitosamente.',
             'producto' => $producto
         ]);
     }

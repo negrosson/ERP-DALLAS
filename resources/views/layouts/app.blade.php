@@ -22,7 +22,7 @@
         @vite(['resources/css/app.css', 'resources/js/app.js'])
         @stack('head')
     </head>
-    <body class="font-sans antialiased uppercase text-slate-200 bg-slate-950 selection:bg-indigo-500/30">
+    <body class="font-sans antialiased text-slate-200 bg-slate-950 selection:bg-indigo-500/30">
         <!-- Ambient Background -->
         <div class="fixed inset-0 z-0 overflow-hidden pointer-events-none">
             <div class="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] rounded-full bg-indigo-600/10 blur-[120px] animate-float"></div>
@@ -31,7 +31,7 @@
 
         <div x-data="{ sidebarOpen: false }" class="relative z-10 flex h-screen overflow-hidden bg-transparent">
             <!-- Overlay para móvil -->
-            <div x-show="sidebarOpen" x-transition.opacity.duration.75ms class="fixed inset-0 z-40 bg-slate-950/80 backdrop-blur-sm md:hidden" @click="sidebarOpen = false" style="display: none;"></div>
+            <div x-show="sidebarOpen" x-transition.opacity.duration.150ms class="fixed inset-0 z-40 bg-slate-950/80 backdrop-blur-md md:hidden" @click="sidebarOpen = false" style="display: none;"></div>
 
             <!-- Sidebar -->
             @include('layouts.sidebar')
@@ -39,19 +39,24 @@
             <!-- Main Content -->
             <div class="flex flex-col flex-1 w-full overflow-hidden min-w-0">
                 <!-- Mobile Header (Hamburger Menu) -->
-                <div class="md:hidden flex items-center justify-between p-4 bg-slate-900 border-b border-slate-800 shadow-sm z-30">
-                    <div class="flex items-center gap-2">
-                        <button @click="sidebarOpen = true" class="p-2 -ml-2 text-slate-400 hover:text-white focus:outline-none">
-                            <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <div class="md:hidden flex items-center justify-between px-4 py-3 bg-slate-950/90 backdrop-blur-xl border-b border-slate-800/80 shadow-md z-30 sticky top-0">
+                    <div class="flex items-center gap-3">
+                        <button @click="sidebarOpen = true" class="p-2 -ml-1 text-slate-400 hover:text-white rounded-xl bg-slate-900/80 border border-slate-800 focus:outline-none transition-colors">
+                            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
                             </svg>
                         </button>
-                        <span class="text-lg font-bold text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-cyan-400 uppercase tracking-wider">
-                            Control ERP
-                        </span>
+                        <div class="flex items-center gap-2">
+                            <div class="w-7 h-7 rounded-lg bg-gradient-to-tr from-indigo-600 to-cyan-400 flex items-center justify-center text-white text-xs font-bold shadow-md shadow-indigo-500/25">
+                                D
+                            </div>
+                            <span class="text-base font-bold text-white tracking-tight">
+                                Dallas <span class="text-xs font-semibold text-indigo-400">Manager</span>
+                            </span>
+                        </div>
                     </div>
-                    <button @click="$dispatch('open-search-modal')" class="p-2 -mr-2 text-slate-400 hover:text-white">
-                        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <button @click="$dispatch('open-search-modal')" class="p-2 text-slate-400 hover:text-white rounded-xl bg-slate-900/80 border border-slate-800 transition-colors">
+                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                         </svg>
                     </button>
@@ -59,8 +64,8 @@
 
                 <!-- Page Heading (Optional Top Bar) -->
                 @isset($header)
-                    <header class="z-10 py-4 bg-slate-900/50 backdrop-blur-md shadow-[0_4px_30px_rgba(0,0,0,0.3)] border-b border-slate-800">
-                        <div class="px-4 mx-auto w-full sm:px-6 lg:px-8">
+                    <header class="z-10 py-3.5 bg-slate-900/50 backdrop-blur-md shadow-[0_4px_30px_rgba(0,0,0,0.3)] border-b border-slate-800/80">
+                        <div class="px-3 sm:px-6 lg:px-8 mx-auto w-full">
                             {{ $header }}
                         </div>
                     </header>
@@ -68,7 +73,7 @@
 
                 <!-- Page Content -->
                 <main class="flex-1 overflow-x-hidden overflow-y-auto bg-slate-950">
-                    <div class="w-full px-4 py-8 mx-auto sm:px-6 lg:px-8">
+                    <div class="w-full px-3 sm:px-6 lg:px-8 py-4 sm:py-6 mx-auto">
                         {{ $slot }}
                     </div>
                 </main>

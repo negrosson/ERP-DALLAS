@@ -41,8 +41,9 @@
                         </div>
 
                         <div>
-                            <label class="block text-sm font-medium text-slate-400 mb-1">Documento Ref (Opcional)</label>
-                            <input type="text" name="documento_referencia" value="{{ old('documento_referencia') }}" placeholder="Ej: Factura 1234" class="w-full bg-slate-950 border border-slate-800 rounded-lg text-slate-300 focus:ring-emerald-500 focus:border-emerald-500 text-base sm:text-sm">
+                            <label class="block text-sm font-medium text-slate-400 mb-1">Documento Ref (N° Factura / Guía)</label>
+                            <input type="text" name="documento_referencia" x-model="documentoReferencia" @blur="checkDocDuplicado()" value="{{ old('documento_referencia') }}" placeholder="Ej: Factura 1234" class="w-full bg-slate-950 border border-slate-800 rounded-lg text-slate-300 focus:ring-emerald-500 focus:border-emerald-500 text-base sm:text-sm font-mono uppercase">
+                            <div x-show="docError" class="text-rose-400 text-xs mt-1 font-semibold" x-text="docError"></div>
                             @error('documento_referencia') <span class="text-rose-500 text-xs mt-1">{{ $message }}</span> @enderror
                         </div>
                     </div>
@@ -164,6 +165,8 @@
                 proveedores: @json($proveedores),
                 productosData: @json($productos->keyBy('id')),
                 proveedorId: "{{ old('proveedor_id') }}",
+                documentoReferencia: "{{ old('documento_referencia') }}",
+                docError: '',
                 items: [],
                 nextId: 1,
                 isSubmitting: false,
@@ -200,8 +203,30 @@
                             alert("Debe agregar al menos un producto.");
                             return;
                         }
+                        if(this.docError) {
+                            e.preventDefault();
+                            alert("Corrija el error del documento/factura antes de continuar.");
+                            return;
+                        }
                         this.isSubmitting = true;
                     });
+                },
+
+                checkDocDuplicado() {
+                    if(!this.proveedorId || !this.documentoReferencia || this.documentoReferencia.toUpperCase() === 'S/N') {
+                        this.docError = '';
+                        return;
+                    }
+                    fetch(`{{ route('recepciones.check-factura') }}?proveedor_id=${this.proveedorId}&numero_factura=${encodeURIComponent(this.documentoReferencia.trim())}`)
+                        .then(res => res.json())
+                        .then(data => {
+                            if (data.exists) {
+                                this.docError = '⚠️ ' + data.message;
+                            } else {
+                                this.docError = '';
+                            }
+                        })
+                        .catch(() => { this.docError = ''; });
                 },
 
                 addItem() {
@@ -227,6 +252,14 @@
                     // Reset dates on product change
                     item.fecha_elaboracion = '';
                     item.fecha_vencimiento = '';
+
+                    // Comprobar si este producto ya fue seleccionado en otra fila para alertar al usuario
+                    if(item.producto_id) {
+                        const duplicates = this.items.filter(i => i.id !== item.id && String(i.producto_id) === String(item.producto_id));
+                        if(duplicates.length > 0) {
+                            alert("⚠️ Atención: Este producto ya se encuentra en otra fila. Si corresponde al mismo vencimiento, es recomendable incrementar la cantidad en la fila existente en lugar de duplicar productos.");
+                        }
+                    }
                 },
 
                 getProductDetail(id) {

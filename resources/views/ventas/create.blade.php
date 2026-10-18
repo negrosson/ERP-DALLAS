@@ -1,78 +1,127 @@
 <x-app-layout>
     <x-slot name="header">
-        <h2 class="font-semibold text-xl text-gray-800 leading-tight">
-            {{ __('Importar Ventas POS') }}
-        </h2>
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <div>
+                <h2 class="text-xl font-bold leading-tight text-slate-200">
+                    {{ __('Importar Planilla de Ventas') }}
+                </h2>
+                <p class="text-xs text-slate-400 mt-0.5">Deducción de stock por vencimiento con filtrado automático de productos ajenos</p>
+            </div>
+            <a href="{{ route('ventas.index') }}" class="inline-flex items-center justify-center px-4 py-2 text-sm font-bold text-slate-300 transition-all bg-slate-800 hover:bg-slate-700 rounded-xl border border-slate-700">
+                &larr; Volver a Ventas
+            </a>
+        </div>
     </x-slot>
 
-    <div class="py-12">
-        <div class="max-w-2xl mx-auto sm:px-6 lg:px-8">
-            <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg">
-                <div class="p-6 text-gray-900">
-                    
-                    <div class="mb-6 bg-blue-50 border-l-4 border-blue-400 p-4">
-                        <div class="flex">
-                            <div class="flex-shrink-0">
-                                <svg class="h-5 w-5 text-blue-400" viewBox="0 0 20 20" fill="currentColor">
-                                    <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd" />
-                                </svg>
-                            </div>
-                            <div class="ml-3">
-                                <h3 class="text-sm font-medium text-blue-800">Formato del Archivo</h3>
-                                <div class="mt-2 text-sm text-blue-700">
-                                    <p>El sistema requiere un archivo <strong>.csv</strong> con las siguientes columnas en la primera fila (encabezado):</p>
-                                    <ul class="list-disc list-inside mt-1">
-                                        <li><code>sku</code> (Código del producto en el catálogo)</li>
-                                        <li><code>cantidad</code> (Cantidad vendida)</li>
-                                    </ul>
-                                </div>
-                            </div>
-                        </div>
+    <div class="py-8">
+        <div class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
+            
+            @if(session('error'))
+                <div class="mb-6 bg-rose-500/10 border border-rose-500/30 text-rose-300 px-4 py-3 rounded-xl flex items-start gap-3 shadow-lg" role="alert">
+                    <svg class="w-5 h-5 text-rose-400 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
+                    <div>
+                        <strong class="font-bold text-rose-200">Error en la carga:</strong>
+                        <p class="text-sm mt-1">{{ session('error') }}</p>
                     </div>
+                </div>
+            @endif
 
-                    @if(session('errores_csv'))
-                        <div class="mb-6 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded relative" role="alert">
-                            <strong class="font-bold">Se encontraron errores en el archivo:</strong>
-                            <ul class="mt-2 text-sm list-disc list-inside">
-                                @foreach(session('errores_csv') as $error)
-                                    <li>{{ $error }}</li>
-                                @endforeach
-                            </ul>
-                        </div>
-                    @endif
+            @if(session('errores_csv'))
+                <div class="mb-6 bg-rose-500/10 border border-rose-500/30 text-rose-300 px-4 py-3 rounded-xl shadow-lg" role="alert">
+                    <strong class="font-bold text-rose-200">Se encontraron inconsistencias en las filas del archivo:</strong>
+                    <ul class="mt-2 text-xs list-disc list-inside space-y-1">
+                        @foreach(session('errores_csv') as $error)
+                            <li>{{ $error }}</li>
+                        @endforeach
+                    </ul>
+                </div>
+            @endif
 
-                    <form method="POST" action="{{ route('ventas.store') }}" enctype="multipart/form-data">
-                        @csrf
-                        
-                        <div class="mb-6">
-                            <x-input-label for="bodega_id" :value="__('Bodega (De dónde se descontará el stock)')" />
-                            <select id="bodega_id" name="bodega_id" class="block w-full mt-1 border-gray-300 rounded-md shadow-sm focus:border-indigo-500 focus:ring-indigo-500" required>
+            <div class="bg-slate-900 border border-slate-800 rounded-2xl shadow-xl shadow-black/50 p-6 sm:p-8">
+                
+                <!-- Guía de Importación y Manejo de Catálogo -->
+                <div class="mb-6 bg-indigo-500/10 border border-indigo-500/30 rounded-xl p-4 text-xs text-indigo-300 space-y-2">
+                    <div class="flex items-center gap-2 font-bold text-indigo-200 text-sm">
+                        <svg class="w-5 h-5 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                        ¿Cómo funciona la importación de ventas?
+                    </div>
+                    <p class="leading-relaxed">
+                        • <strong>Filtrado Automático de Productos Ajenos:</strong> Puedes subir la planilla completa de tu POS o caja sin filtrar. El ERP identificará automáticamente tus productos (Coca-Cola, CCU, etc.) y omitirá cualquier otro ítem que no esté en tu catálogo (pan, abarrotes, snacks), sin causar errores.
+                    </p>
+                    <p class="leading-relaxed">
+                        • <strong>Ventas de Días Anteriores (Desfases):</strong> Si subes ventas de ayer, del fin de semana o semanales, indica la fecha comercial correspondiente en <em>"Fecha de las Ventas"</em>. El sistema mantendrá los reportes y estadísticas en su día real.
+                    </p>
+                    <p class="leading-relaxed">
+                        • <strong>Deducción FEFO:</strong> Descuenta prioritariamente los lotes con fecha de vencimiento más próxima (<code class="bg-slate-950 px-1 py-0.5 rounded text-emerald-400 font-mono">vencimiento más cercano primero</code>).
+                    </p>
+                    <p class="leading-relaxed">
+                        • <strong>Protección Anti-Duplicados:</strong> Si el mismo archivo ya fue subido para esa bodega y fecha, la operación se bloquea para evitar doble descuento de mercadería.
+                    </p>
+                </div>
+
+                <form method="POST" action="{{ route('ventas.store') }}" enctype="multipart/form-data" class="space-y-6">
+                    @csrf
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <!-- Bodega Destino -->
+                        <div>
+                            <label for="bodega_id" class="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-1">
+                                Bodega / Máquina Origen <span class="text-rose-500">*</span>
+                            </label>
+                            <select id="bodega_id" name="bodega_id" class="block w-full bg-slate-950 border-slate-800 text-slate-200 rounded-lg focus:border-indigo-500 focus:ring-indigo-500 text-sm" required>
                                 @foreach($bodegas as $bodega)
-                                    <option value="{{ $bodega->id }}" {{ $bodega->codigo === 'B-SALA' ? 'selected' : '' }}>
-                                        {{ $bodega->nombre }}
+                                    <option value="{{ $bodega->id }}" {{ (old('bodega_id') == $bodega->id || $bodega->codigo === 'B-SALA') ? 'selected' : '' }}>
+                                        [{{ $bodega->codigo }}] {{ $bodega->nombre }}
                                     </option>
                                 @endforeach
                             </select>
-                            <x-input-error :messages="$errors->get('bodega_id')" class="mt-2" />
+                            <x-input-error :messages="$errors->get('bodega_id')" class="mt-2 text-rose-400 text-xs" />
                         </div>
 
-                        <div class="mb-6">
-                            <x-input-label for="archivo_ventas" :value="__('Archivo CSV de Ventas')" />
-                            <input type="file" id="archivo_ventas" name="archivo_ventas" accept=".csv,.txt" class="block w-full mt-1 text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100" required />
-                            <x-input-error :messages="$errors->get('archivo_ventas')" class="mt-2" />
+                        <!-- Fecha de la Venta (con soporte para desfases) -->
+                        <div>
+                            <label for="fecha_venta" class="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-1">
+                                Fecha de las Ventas <span class="text-rose-500">*</span>
+                            </label>
+                            <input type="date" id="fecha_venta" name="fecha_venta" value="{{ old('fecha_venta', now()->format('Y-m-d')) }}" max="{{ now()->format('Y-m-d') }}" class="block w-full bg-slate-950 border-slate-800 text-slate-200 rounded-lg focus:border-indigo-500 focus:ring-indigo-500 text-sm" required>
+                            <span class="text-[11px] text-slate-500 mt-1 block">Si son ventas de ayer, seleccione la fecha correspondiente.</span>
+                            <x-input-error :messages="$errors->get('fecha_venta')" class="mt-2 text-rose-400 text-xs" />
                         </div>
+                    </div>
 
-                        <div class="flex items-center justify-end mt-4">
-                            <a href="{{ route('ventas.index') }}" class="text-sm text-gray-600 underline hover:text-gray-900 mr-4">
-                                Cancelar
-                            </a>
-                            <x-primary-button>
-                                {{ __('Procesar y Deducir Stock') }}
-                            </x-primary-button>
+                    <!-- Archivo CSV -->
+                    <div>
+                        <label for="archivo_ventas" class="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-1">
+                            Archivo CSV de Ventas <span class="text-rose-500">*</span>
+                        </label>
+                        <div class="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-slate-800 border-dashed rounded-xl hover:border-indigo-500 transition-colors bg-slate-950">
+                            <div class="space-y-2 text-center">
+                                <svg class="mx-auto h-12 w-12 text-slate-500" stroke="currentColor" fill="none" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path></svg>
+                                <div class="flex text-sm text-slate-400 justify-center">
+                                    <label for="archivo_ventas" class="relative cursor-pointer font-bold text-indigo-400 hover:text-indigo-300">
+                                        <span>Seleccionar archivo CSV</span>
+                                        <input id="archivo_ventas" name="archivo_ventas" type="file" accept=".csv,.txt" class="sr-only" required onchange="document.getElementById('file-chosen').textContent = this.files[0] ? this.files[0].name : '';">
+                                    </label>
+                                </div>
+                                <p class="text-xs text-slate-500">Columnas requeridas: <code>sku</code> (o <code>codigo</code>) y <code>cantidad</code>. Puedes subir el reporte completo de caja/POS.</p>
+                                <p id="file-chosen" class="text-xs font-mono text-emerald-400 mt-2 font-bold"></p>
+                            </div>
                         </div>
-                    </form>
+                        <x-input-error :messages="$errors->get('archivo_ventas')" class="mt-2 text-rose-400 text-xs" />
+                    </div>
 
-                </div>
+                    <!-- Botones de Acción -->
+                    <div class="flex flex-col sm:flex-row items-center justify-end gap-3 pt-4 border-t border-slate-800">
+                        <a href="{{ route('ventas.index') }}" class="w-full sm:w-auto text-center px-5 py-3 text-sm font-semibold text-slate-400 hover:text-white transition-colors">
+                            Cancelar
+                        </a>
+                        <button type="submit" class="w-full sm:w-auto px-6 py-3 text-sm font-bold text-white transition-all bg-indigo-600 hover:bg-indigo-500 rounded-xl shadow-[0_0_15px_rgba(79,70,229,0.4)] flex items-center justify-center gap-2">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg>
+                            Procesar e Importar Ventas
+                        </button>
+                    </div>
+                </form>
+
             </div>
         </div>
     </div>

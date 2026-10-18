@@ -15,10 +15,10 @@ class MaquinaSeeder extends Seeder
     public function run(): void
     {
         // Limpiar datos previos
-        \Illuminate\Support\Facades\DB::statement('SET FOREIGN_KEY_CHECKS=0;');
+        \Illuminate\Support\Facades\Schema::disableForeignKeyConstraints();
         MaquinaSlot::truncate();
         Maquina::truncate();
-        \Illuminate\Support\Facades\DB::statement('SET FOREIGN_KEY_CHECKS=1;');
+        \Illuminate\Support\Facades\Schema::enableForeignKeyConstraints();
 
         $bodegaCcu = Bodega::where('nombre', 'Bodega CCU')->first();
         $bodegaCocaCola = Bodega::where('nombre', 'Bodega Coca-Cola')->first();
