@@ -186,4 +186,55 @@ class OcrDiscrepanciaTest extends TestCase
             'bodega_id' => $this->bodegaCcu->id,
         ]);
     }
+
+    /**
+     * Prueba que el escaneo OCR rechaza procesar una factura que ya fue ingresada previamente
+     * para el mismo proveedor (Anti-duplicación estricta).
+     */
+    public function test_ocr_rechaza_factura_duplicada_si_ya_existe_en_el_sistema(): void
+    {
+        // 1. Crear previamente la recepción en la base de datos
+        Recepcion::create([
+            'proveedor_id' => $this->provCcu->id,
+            'bodega_id' => $this->bodegaCcu->id,
+            'user_id' => $this->user->id,
+            'numero_factura' => '888125',
+            'documento_referencia' => '888125',
+            'fecha_recepcion' => now(),
+            'estado' => \App\Enums\EstadoRecepcion::CONFIRMADO->value,
+        ]);
+
+        $mockOcr = Mockery::mock(OcrService::class);
+        $mockOcr->shouldReceive('processInvoiceImage')->once()->andReturn([
+            'emisor_razon_social' => 'COMPAÑIA CERVECERIAS UNIDAS S.A.',
+            'rut_emisor' => '90.413.000-1',
+            'marca_detectada' => 'CCU',
+            'numero_factura' => '888125', // MISMO NÚMERO DE FACTURA
+            'fecha_emision' => '2026-05-16',
+            'total_factura' => 150000,
+            'items' => [
+                [
+                    'codigo' => '870400',
+                    'descripcion' => 'CRISTAL LATA 350CC',
+                    'cantidad' => 8,
+                    'precio_unitario' => 12000,
+                ]
+            ]
+        ]);
+        $this->app->instance(OcrService::class, $mockOcr);
+
+        $file = UploadedFile::fake()->image('factura_ccu_duplicada.jpg');
+
+        $response = $this->postJson(route('recepciones.ocr.process'), [
+            'proveedor_id' => $this->provCcu->id,
+            'bodega_id' => $this->bodegaCcu->id,
+            'factura' => $file,
+        ]);
+
+        // Debe ser rechazada con código HTTP 422
+        $response->assertStatus(422);
+        $response->assertJson(['success' => false]);
+        $this->assertStringContainsString('ya existe en el sistema', $response->json('message'));
+        $this->assertStringContainsString('No se permite volver a ingresar una factura duplicada', $response->json('message'));
+    }
 }
