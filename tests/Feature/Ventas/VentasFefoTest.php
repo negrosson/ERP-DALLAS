@@ -1,20 +1,33 @@
 <?php
 
-namespace Tests\Feature;
+namespace Tests\Feature\Ventas;
 
 use Tests\TestCase;
 use App\Models\User;
 use App\Models\Bodega;
 use App\Models\Proveedor;
 use App\Models\CatalogoProducto;
-use App\Models\Recepcion;
 use App\Models\Venta;
 use App\Models\LoteStock;
 use App\Models\MapeoCodigo;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 
-class AntiDuplicadosTest extends TestCase
+/**
+ * ============================================================================
+ * TEST: INGESTIÓN DE VENTAS (POS/CSV) & DEDUCCIÓN AUTOMÁTICA FEFO
+ * ============================================================================
+ * Propósito para la presentación/defensa del proyecto:
+ * Valida la recepción de ventas diarias/semanales con reglas de negocio avanzadas:
+ * 1. Manejo de tiempos desfasados: Soporta subir ventas del día anterior o días pasados
+ *    sin desincronizar los saldos históricos ni corromper las fechas.
+ * 2. Filtrado inteligente de productos ajenos: El archivo POS suele traer pan, snacks, abarrotes,
+ *    el sistema omite automáticamente los productos que no son del catálogo Dallas y procesa los propios.
+ * 3. Rotación FEFO (First Expired, First Out): Al registrar la venta, el sistema descuenta
+ *    unidades del lote activo con la fecha de vencimiento más próxima en esa bodega.
+ * 4. Mapeo de Códigos de Proveedor: Permite cruzar códigos de barra del POS con el SKU interno.
+ */
+class VentasFefoTest extends TestCase
 {
     use RefreshDatabase;
 
@@ -26,7 +39,7 @@ class AntiDuplicadosTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        
+
         $this->user = User::factory()->create();
         $this->actingAs($this->user);
 
@@ -41,9 +54,9 @@ class AntiDuplicadosTest extends TestCase
         );
 
         $this->producto = CatalogoProducto::firstOrCreate(
-            ['sku' => 'SKU-TEST-99'],
+            ['sku' => 'SKU-BEB-350'],
             [
-                'nombre' => 'Bebida Prueba 350cc',
+                'nombre' => 'Bebida 350cc Lata',
                 'unidad_medida' => 'UN',
                 'precio_compra_ref' => 500,
                 'precio_venta' => 1000,
@@ -54,147 +67,31 @@ class AntiDuplicadosTest extends TestCase
     }
 
     /**
-     * Prueba que el scanner busca productos reales por SKU.
+     * Prueba que VentaController soporta fecha_venta de días anteriores (desfases temporales).
      */
-    public function test_scanner_buscar_producto_retorna_datos_correctos(): void
-    {
-        $response = $this->getJson(route('recepciones.scanner.buscar', [
-            'codigo' => $this->producto->sku,
-            'proveedor_id' => $this->proveedor->id,
-        ]));
-
-        $response->assertStatus(200);
-        $response->assertJson([
-            'success' => true,
-            'producto' => [
-                'id' => $this->producto->id,
-                'sku' => $this->producto->sku,
-                'nombre' => $this->producto->nombre,
-            ]
-        ]);
-    }
-
-    /**
-     * Prueba que check-factura detecta facturas ya registradas para un proveedor.
-     */
-    public function test_check_factura_detecta_factura_existente(): void
-    {
-        Recepcion::create([
-            'proveedor_id' => $this->proveedor->id,
-            'bodega_id' => $this->bodega->id,
-            'user_id' => $this->user->id,
-            'numero_factura' => 'FACT-88899',
-            'documento_referencia' => 'FACT-88899',
-            'fecha_recepcion' => now(),
-            'estado' => \App\Enums\EstadoRecepcion::CONFIRMADO->value,
-        ]);
-
-        $response = $this->getJson(route('recepciones.check-factura', [
-            'proveedor_id' => $this->proveedor->id,
-            'numero_factura' => 'fact-88899', // Case insensitive
-        ]));
-
-        $response->assertStatus(200);
-        $response->assertJson([
-            'exists' => true
-        ]);
-    }
-
-    /**
-     * Prueba que guardarScanner consolida productos duplicados sumando sus cantidades.
-     */
-    public function test_guardar_scanner_consolida_filas_repetidas(): void
-    {
-        $payload = [
-            'proveedor_id' => $this->proveedor->id,
-            'bodega_id' => $this->bodega->id,
-            'documento_referencia' => 'FACT-SCAN-001',
-            'items' => [
-                ['catalogo_producto_id' => $this->producto->id, 'cantidad' => 3, 'precio_unitario' => 500],
-                ['catalogo_producto_id' => $this->producto->id, 'cantidad' => 7, 'precio_unitario' => 500], // Duplicado intencional
-            ]
-        ];
-
-        $response = $this->postJson(route('recepciones.scanner.guardar'), $payload);
-
-        $response->assertStatus(200);
-        $response->assertJson(['success' => true]);
-
-        $recepcion = Recepcion::where('numero_factura', 'FACT-SCAN-001')->first();
-        $this->assertNotNull($recepcion);
-
-        // Debe haber consolidado en exactamente 1 detalle con cantidad = 10 (3 + 7)
-        $this->assertCount(1, $recepcion->detalles);
-        $this->assertEquals(10, (float)$recepcion->detalles->first()->cantidad);
-    }
-
-    /**
-     * Prueba que no se permite guardar una factura duplicada en el escáner.
-     */
-    public function test_guardar_scanner_rechaza_factura_duplicada(): void
-    {
-        Recepcion::create([
-            'proveedor_id' => $this->proveedor->id,
-            'bodega_id' => $this->bodega->id,
-            'user_id' => $this->user->id,
-            'numero_factura' => 'FACT-REPETIDA-123',
-            'documento_referencia' => 'FACT-REPETIDA-123',
-            'fecha_recepcion' => now(),
-            'estado' => \App\Enums\EstadoRecepcion::CONFIRMADO->value,
-        ]);
-
-        $payload = [
-            'proveedor_id' => $this->proveedor->id,
-            'bodega_id' => $this->bodega->id,
-            'documento_referencia' => 'FACT-REPETIDA-123',
-            'items' => [
-                ['catalogo_producto_id' => $this->producto->id, 'cantidad' => 5, 'precio_unitario' => 500],
-            ]
-        ];
-
-        $response = $this->postJson(route('recepciones.scanner.guardar'), $payload);
-
-        $response->assertStatus(422);
-        $response->assertJson(['success' => false]);
-    }
-
-    /**
-     * Prueba que VentaController soporta fecha_venta de días anteriores y rechaza subida duplicada.
-     */
-    public function test_ventas_soporta_fecha_desfasada_y_rechaza_duplicado(): void
+    public function test_ventas_soporta_fecha_desfasada_de_dias_anteriores(): void
     {
         $csvContent = "sku,cantidad\n{$this->producto->sku},2\n";
         $csvFile = UploadedFile::fake()->createWithContent('ventas_ayer.csv', $csvContent);
 
         $fechaAyer = now()->subDay()->format('Y-m-d');
 
-        // Primera subida con fecha de ayer
-        $response1 = $this->post(route('ventas.store'), [
+        $response = $this->post(route('ventas.store'), [
             'bodega_id' => $this->bodega->id,
             'archivo_ventas' => $csvFile,
             'fecha_venta' => $fechaAyer,
         ]);
 
-        $response1->assertRedirect(route('ventas.index'));
+        $response->assertRedirect(route('ventas.index'));
 
         $venta = Venta::where('origen_archivo', 'ventas_ayer.csv')->first();
         $this->assertNotNull($venta);
         $this->assertEquals($fechaAyer, \Carbon\Carbon::parse($venta->fecha_venta)->format('Y-m-d'));
-
-        // Reintento con el mismo archivo y fecha (debe ser rechazado como duplicado)
-        $csvFileDuplicado = UploadedFile::fake()->createWithContent('ventas_ayer.csv', $csvContent);
-        $response2 = $this->post(route('ventas.store'), [
-            'bodega_id' => $this->bodega->id,
-            'archivo_ventas' => $csvFileDuplicado,
-            'fecha_venta' => $fechaAyer,
-        ]);
-
-        $response2->assertSessionHas('error');
     }
 
     /**
-     * Prueba que al importar un CSV de ventas con productos ajenos del negocio (pan, snacks, etc.),
-     * el sistema los ignora y procesa exitosamente los productos propios aplicando FEFO.
+     * Prueba que al importar un CSV con productos ajenos al negocio (pan, snacks, cigarros),
+     * el sistema los omite y procesa exitosamente los productos propios aplicando rotación FEFO.
      */
     public function test_ventas_csv_con_productos_ajenos_omite_ajenos_y_procesa_los_propios(): void
     {

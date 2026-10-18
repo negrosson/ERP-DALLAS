@@ -1,11 +1,19 @@
 <?php
 
-namespace Tests\Feature;
+namespace Tests\Feature\Auth;
 
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
+/**
+ * ============================================================================
+ * TEST: PERFIL DE USUARIO Y GESTIÓN DE CUENTA
+ * ============================================================================
+ * Propósito para la presentación/defensa del proyecto:
+ * Valida la edición de datos de perfil, actualización de credenciales
+ * y eliminación segura de cuentas con validación de contraseña.
+ */
 class ProfileTest extends TestCase
 {
     use RefreshDatabase;

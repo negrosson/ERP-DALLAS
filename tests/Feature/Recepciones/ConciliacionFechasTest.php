@@ -1,6 +1,6 @@
 <?php
 
-namespace Tests\Feature;
+namespace Tests\Feature\Recepciones;
 
 use Tests\TestCase;
 use App\Models\User;
@@ -13,6 +13,18 @@ use App\Models\LoteStock;
 use App\Enums\EstadoRecepcion;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 
+/**
+ * ============================================================================
+ * TEST: CONCILIACIÓN DE FECHAS & MÁQUINA DE ESTADOS DE RECEPCIÓN
+ * ============================================================================
+ * Propósito para la presentación/defensa del proyecto:
+ * Valida el flujo seguro de mercadería física:
+ * 1. Estado PENDIENTE_FECHA: Los productos escaneados quedan en cuarentena preventiva.
+ * 2. Asignación de fechas de vencimiento y lote: Creación de lotes en bodega solo tras confirmar fechas.
+ * 3. Lotes divididos: Si un producto viene con dos fechas de vencimiento distintas, se dividen en 2 LoteStock.
+ * 4. Consolidación automática: Si se asigna la misma fecha, se consolidan las cantidades.
+ * 5. Alta rápida (Quick-store): Detección y creación guiada de productos nuevos sin duplicar catálogo.
+ */
 class ConciliacionFechasTest extends TestCase
 {
     use RefreshDatabase;
@@ -66,7 +78,7 @@ class ConciliacionFechasTest extends TestCase
     }
 
     /**
-     * Prueba que conciliar renderiza la vista en modo PENDIENTE_FECHA.
+     * Prueba que conciliar renderiza la vista en modo PENDIENTE_FECHA con sus datos listos.
      */
     public function test_conciliar_pantalla_carga_correctamente(): void
     {
