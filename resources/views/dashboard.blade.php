@@ -1,8 +1,20 @@
+{{-- ==============================================================================
+     PANEL DE CONTROL PRINCIPAL / DASHBOARD EJECUTIVO (resources/views/dashboard.blade.php)
+     ==============================================================================
+     Centro neurálgico de operaciones en tiempo real:
+     - Métricas financieras consolidadas (Valorización de inventario, existencias).
+     - Alerta de facturas en cuarentena preventiva (Recepciones PENDIENTE_FECHA).
+     - Warehouse Hub: Monitor visual de todas las bodegas (secas y refrigeradas).
+     - Radar FEFO Interactivo: Búsqueda y filtrado dinámico de lotes por horizonte de vencimiento.
+     - Gráficos ejecutivos con Chart.js (Ventas semanales, proyección de caducidad, distribución por almacén).
+     ============================================================================== --}}
 <x-app-layout>
+    {{-- Inyección de la barra de título en el slot $header del layout maestro --}}
     <x-slot name="header">
         <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
             <div>
                 <div class="flex items-center gap-2.5 sm:gap-3">
+                    {{-- Barra decorativa vertical con degradado corporativo índigo-cian --}}
                     <div class="w-2 sm:w-2.5 h-6 sm:h-8 bg-gradient-to-b from-indigo-500 to-cyan-400 rounded-full shadow-[0_0_12px_rgba(99,102,241,0.6)] shrink-0"></div>
                     <h2 class="text-xl sm:text-2xl md:text-3xl font-bold tracking-tight text-white leading-tight">
                         {{ __('Centro de Control & Operaciones') }}
@@ -13,8 +25,9 @@
                 </p>
             </div>
 
-            <!-- Badges de sincronización y accesos directos -->
+            {{-- Badges de sincronización y accesos directos superiores --}}
             <div class="flex items-center gap-2 sm:gap-3 flex-wrap">
+                {{-- Indicador verde con pulso animado de sincronización en vivo --}}
                 <div class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-[11px] sm:text-xs font-medium backdrop-blur-md shadow-[0_0_15px_rgba(16,185,129,0.15)]">
                     <span class="relative flex h-2 w-2">
                         <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
@@ -23,6 +36,7 @@
                     <span>100% Sincronizado en Vivo</span>
                 </div>
 
+                {{-- Acceso rápido al módulo de recepciones de mercadería --}}
                 <a href="{{ route('recepciones.index') }}" class="inline-flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-1.5 sm:py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-medium rounded-xl transition-all duration-200 shadow-lg shadow-indigo-600/20 border border-indigo-400/30">
                     <svg class="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
                     <span>Recepciones</span>
@@ -31,20 +45,21 @@
         </div>
     </x-slot>
 
-    <!-- Import Chart.js -->
+    {{-- Carga de la biblioteca Chart.js para renderizado de gráficos analíticos --}}
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
-    <!-- Contenedor Principal con Alpine Component -->
+    {{-- Contenedor Principal montado con el Componente Reactivo de Alpine: dashboardHub() --}}
     <div x-data="dashboardHub()" class="w-full space-y-6 sm:space-y-8 relative overflow-x-clip font-sans text-slate-100">
         
-        <!-- Ambient Radial Glows (Sleek dark executive vibe) -->
+        {{-- Destellos Radiales Ambientales (Efecto Cyber-Executive difuminado en fondo) --}}
         <div class="absolute top-0 left-1/4 w-[600px] h-[400px] bg-indigo-600/10 rounded-full blur-[140px] pointer-events-none -z-0"></div>
         <div class="absolute top-1/3 right-10 w-[500px] h-[500px] bg-cyan-600/10 rounded-full blur-[150px] pointer-events-none -z-0"></div>
         <div class="absolute bottom-10 left-1/3 w-[600px] h-[400px] bg-rose-600/5 rounded-full blur-[160px] pointer-events-none -z-0"></div>
 
         <div class="w-full space-y-6 sm:space-y-8 relative z-10">
             
-            <!-- ALERTA DE SISTEMA: Facturas Pendientes de Conciliación -->
+            {{-- ALERTA DE SISTEMA: Recepciones de Factura en Cuarentena Preventiva (PENDIENTE_FECHA) --}}
+            {{-- Notifica al operador que hay mercadería física ingresada esperando fecha de vencimiento para habilitar venta --}}
             @if(count($recepcionesPendientes) > 0)
             <div class="relative overflow-hidden rounded-3xl bg-gradient-to-r from-amber-500/15 via-rose-500/10 to-slate-900/80 border border-amber-500/30 p-5 md:p-6 backdrop-blur-xl shadow-2xl shadow-rose-950/20">
                 <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -66,6 +81,7 @@
                             </p>
                         </div>
                     </div>
+                    {{-- Botón de llamada a la acción hacia el conciliador de fechas --}}
                     <div class="shrink-0 flex items-center gap-3">
                         <a href="{{ route('recepciones.index') }}?estado=PENDIENTE_FECHA" class="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-rose-600 hover:from-amber-400 hover:to-rose-500 text-white font-medium text-xs tracking-normal shadow-lg shadow-rose-900/30 transition-all duration-200 border border-white/20">
                             <span>Conciliar Fechas Ahora</span>
@@ -76,10 +92,10 @@
             </div>
             @endif
 
-            <!-- ROW 1: EXECUTIVE KPI CARDS -->
+            {{-- FILA 1: TARJETAS KPI EJECUTIVAS (Métricas de negocio de alto impacto) --}}
             <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
                 
-                <!-- KPI 1: Valorización Total -->
+                {{-- KPI 1: Valorización Total Monetaria del Inventario Activo --}}
                 <div class="relative overflow-hidden rounded-3xl bg-slate-900/60 border border-slate-800/80 p-6 backdrop-blur-xl hover:border-indigo-500/40 transition-all duration-300 group shadow-lg">
                     <div class="absolute -top-12 -right-12 w-28 h-28 bg-indigo-500/10 rounded-full blur-2xl group-hover:bg-indigo-500/20 transition-all"></div>
                     <div class="flex items-center justify-between">
@@ -89,6 +105,7 @@
                         </div>
                     </div>
                     <div class="mt-4">
+                        {{-- Monto en moneda local (CLP) formateado sin decimales --}}
                         <div class="text-3xl lg:text-4xl font-bold tracking-tight text-white">
                             ${{ number_format($valorTotal, 0, ',', '.') }}
                         </div>
@@ -97,7 +114,7 @@
                             <span class="font-semibold text-slate-200">{{ number_format($totalUnidades, 0, ',', '.') }} UN</span>
                         </div>
                     </div>
-                    <!-- Mini visual distribution bar -->
+                    {{-- Barra visual de proporción de stock distribuido entre bodegas --}}
                     <div class="mt-4 h-1.5 w-full bg-slate-800 rounded-full overflow-hidden flex">
                         @php
                             $colorCycle = ['bg-indigo-500', 'bg-cyan-400', 'bg-emerald-400', 'bg-purple-500'];
@@ -113,7 +130,8 @@
                     </div>
                 </div>
 
-                <!-- KPI 2: Catálogo de Productos -->
+
+                {{-- KPI 2: Conteo Maestro de Catálogo de Productos y Estado de Abastecimiento --}}
                 <a href="{{ route('catalogo.index') }}" class="relative overflow-hidden rounded-3xl bg-slate-900/60 border border-slate-800/80 p-6 backdrop-blur-xl hover:border-cyan-500/40 transition-all duration-300 group shadow-lg block">
                     <div class="absolute -top-12 -right-12 w-28 h-28 bg-cyan-500/10 rounded-full blur-2xl group-hover:bg-cyan-500/20 transition-all"></div>
                     <div class="flex items-center justify-between">
@@ -123,10 +141,12 @@
                         </div>
                     </div>
                     <div class="mt-4">
+                        {{-- Total de SKUs registrados en el catálogo maestro --}}
                         <div class="text-3xl lg:text-4xl font-bold tracking-tight text-white flex items-baseline gap-2">
                             <span>{{ number_format($totalProductos, 0, ',', '.') }}</span>
                             <span class="text-sm font-normal text-slate-400">SKU</span>
                         </div>
+                        {{-- Desglose rápido: SKUs con saldo positivo vs SKUs agotados/quiebre --}}
                         <div class="mt-3 flex items-center gap-3 text-xs">
                             <span class="inline-flex items-center gap-1.5 text-emerald-400 font-medium">
                                 <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
@@ -140,7 +160,7 @@
                     </div>
                 </a>
 
-                <!-- KPI 3: Semáforo de Vencimientos -->
+                {{-- KPI 3: Semáforo y Salud FEFO (Detección Temprana de Caducidades) --}}
                 <div class="relative overflow-hidden rounded-3xl bg-slate-900/60 border border-slate-800/80 p-6 backdrop-blur-xl hover:border-rose-500/40 transition-all duration-300 group shadow-lg">
                     <div class="absolute -top-12 -right-12 w-28 h-28 bg-rose-500/10 rounded-full blur-2xl group-hover:bg-rose-500/20 transition-all"></div>
                     <div class="flex items-center justify-between">
@@ -150,12 +170,14 @@
                         </div>
                     </div>
                     <div class="mt-4">
+                        {{-- Indicador numérico de lotes que exigen acción inmediata (Vencidos + Críticos) --}}
                         <div class="flex items-baseline gap-2">
                             <span class="text-3xl lg:text-4xl font-bold tracking-tight {{ ($radarCounts['vencido'] + $radarCounts['critico']) > 0 ? 'text-rose-400' : 'text-emerald-400' }}">
                                 {{ $radarCounts['vencido'] + $radarCounts['critico'] }}
                             </span>
                             <span class="text-xs text-slate-400">lotes en riesgo alto</span>
                         </div>
+                        {{-- Micro-grid con desglose tripartito: Vencidos, <30 días y Óptimos (>30 días) --}}
                         <div class="mt-3 grid grid-cols-3 gap-1.5 text-center">
                             <div class="p-1.5 rounded-lg bg-rose-500/10 border border-rose-500/20">
                                 <span class="block text-[10px] text-rose-300 font-semibold">VENCIDOS</span>
@@ -173,7 +195,7 @@
                     </div>
                 </div>
 
-                <!-- KPI 4: Ventas Semanales -->
+                {{-- KPI 4: Ventas Comerciales (Últimos 7 días con Deducción FEFO Automática) --}}
                 <a href="{{ route('ventas.index') }}" class="relative overflow-hidden rounded-3xl bg-slate-900/60 border border-slate-800/80 p-6 backdrop-blur-xl hover:border-emerald-500/40 transition-all duration-300 group shadow-lg block">
                     <div class="absolute -top-12 -right-12 w-28 h-28 bg-emerald-500/10 rounded-full blur-2xl group-hover:bg-emerald-500/20 transition-all"></div>
                     <div class="flex items-center justify-between">
@@ -183,6 +205,7 @@
                         </div>
                     </div>
                     <div class="mt-4">
+                        {{-- Sumatoria monetaria de las ventas registradas en la última semana --}}
                         <div class="text-3xl lg:text-4xl font-bold tracking-tight text-white">
                             ${{ number_format($chartVentasData->sum(), 0, ',', '.') }}
                         </div>
@@ -191,15 +214,18 @@
                             <span class="font-semibold text-emerald-400">Automática</span>
                         </div>
                     </div>
+                    {{-- Indicador de enlace hacia el módulo de ventas --}}
                     <div class="mt-4 flex items-center gap-1.5 text-xs text-indigo-400 group-hover:text-indigo-300">
                         <span>Ver historial de despachos</span>
                         <svg class="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
                     </div>
                 </a>
 
+
             </div>
 
-            <!-- ROW 2: HUB DE BODEGAS SINCRONIZADAS (100% Sincronizado en tiempo real) -->
+            {{-- FILA 2: HUB DE BODEGAS SINCRONIZADAS (Monitoreo Multisede en Tiempo Real) --}}
+            {{-- Permite interactuar con cada almacén físico y actuar como filtro rápido para el Radar FEFO inferior --}}
             <div class="space-y-4">
                 <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                     <div>
@@ -214,6 +240,7 @@
                         </p>
                     </div>
 
+                    {{-- Controles de filtro de bodega: restablecer filtro global o ir a gestión de bodegas --}}
                     <div class="flex items-center gap-2">
                         <button @click="resetBodegaFilter()" 
                                 x-show="selectedBodega !== null" 
@@ -229,17 +256,19 @@
                     </div>
                 </div>
 
-                <!-- Tarjetas Interactivas de Cada Bodega -->
+                {{-- Grilla de Tarjetas Interactivas por cada Bodega Física Activa --}}
                 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
                     @foreach($bodegasDetalle as $b)
+                    {{-- Tarjeta interactiva con evento @click="toggleBodega(id)" para activar/desactivar filtro Alpine --}}
                     <div @click="toggleBodega({{ $b['id'] }})"
                          :class="selectedBodega === {{ $b['id'] }} ? 'border-cyan-400 ring-2 ring-cyan-500/40 bg-slate-900/90 shadow-cyan-950/50' : 'border-slate-800/80 bg-slate-900/50 hover:border-slate-700'"
                          class="cursor-pointer relative overflow-hidden rounded-3xl border p-5 backdrop-blur-xl transition-all duration-300 group shadow-lg flex flex-col justify-between">
                         
                         <div>
-                            <!-- Header de la Bodega -->
+                            {{-- Cabecera de la Bodega: Ícono de Temperatura, Nombre y Código --}}
                             <div class="flex items-start justify-between gap-3">
                                 <div class="flex items-center gap-3">
+                                    {{-- Ícono diferenciado: Copo de nieve para refrigerada, Caja para seca --}}
                                     <div class="w-10 h-10 rounded-2xl flex items-center justify-center font-bold text-xs {{ $b['es_refrigerada'] ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-400/30' : 'bg-indigo-500/20 text-indigo-300 border border-indigo-400/30' }}">
                                         @if($b['es_refrigerada'])
                                             ❄️
@@ -262,13 +291,13 @@
                                     </div>
                                 </div>
 
-                                <!-- Active Check Pill -->
+                                {{-- Indicador visual de Bodega seleccionada activamente como filtro --}}
                                 <div x-show="selectedBodega === {{ $b['id'] }}" class="p-1 rounded-full bg-cyan-500 text-slate-950 shadow-[0_0_10px_rgba(34,211,238,0.8)]">
                                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"></path></svg>
                                 </div>
                             </div>
 
-                            <!-- Métricas de la Bodega -->
+                            {{-- Métricas de la Bodega: Unidades físicas en existencia y valorización monetaria --}}
                             <div class="mt-5 grid grid-cols-2 gap-3 pt-4 border-t border-slate-800/80">
                                 <div>
                                     <span class="text-[11px] text-slate-400 block font-medium">Existencias</span>
@@ -286,7 +315,7 @@
                             </div>
                         </div>
 
-                        <!-- Footer con Lotes y Estado -->
+                        {{-- Pie de la Tarjeta: Conteo de Lotes y Semáforo de Urgencia --}}
                         <div class="mt-4 pt-3 border-t border-slate-800/80 flex items-center justify-between text-xs">
                             <span class="text-slate-400">
                                 <strong class="text-slate-200">{{ $b['lotes_count'] }}</strong> lotes registrados
@@ -311,13 +340,14 @@
                 </div>
             </div>
 
-            <!-- ROW 3: RADAR INTERACTIVO DE VENCIMIENTOS FEFO (Súper Visual y Filtrable) -->
+            {{-- FILA 3: RADAR INTERACTIVO DE VENCIMIENTOS FEFO --}}
+            {{-- Proporciona visualización tabular reactiva con filtros de tiempo y búsqueda instantánea --}}
             <div class="rounded-3xl bg-slate-900/70 border border-slate-800/80 p-6 md:p-8 backdrop-blur-2xl shadow-2xl relative overflow-hidden">
-                <!-- Background Accent Glow -->
+                {{-- Efecto ambiental decorativo --}}
                 <div class="absolute top-0 right-0 w-96 h-96 bg-indigo-500/5 rounded-full blur-3xl pointer-events-none"></div>
 
                 <div class="space-y-6">
-                    <!-- Título y Resumen del Radar -->
+                    {{-- Encabezado del Radar y Resumen de Lotes Filtrados --}}
                     <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
                         <div>
                             <div class="flex items-center gap-2">
@@ -331,11 +361,12 @@
                             </p>
                         </div>
 
-                        <!-- Contador de Resultados Dinámico -->
+                        {{-- Contador Dinámico de Lotes Visibles según los Filtros Activos --}}
                         <div class="flex items-center gap-3">
                             <span class="text-xs text-slate-400 font-normal">
                                 Mostrando <strong class="text-white" x-text="filteredLotes.length"></strong> de <strong class="text-white">{{ $radarCounts['todos'] }}</strong> lotes activos
                             </span>
+                            {{-- Pill informativa si hay una bodega filtrada activamente --}}
                             <template x-if="selectedBodega !== null">
                                 <span class="px-2.5 py-1 rounded-lg bg-cyan-500/15 border border-cyan-400/30 text-cyan-300 text-xs font-medium flex items-center gap-1.5">
                                     <span>Bodega filtrada:</span>
@@ -346,10 +377,10 @@
                         </div>
                     </div>
 
-                    <!-- BARRA DE FILTROS INTERACTIVOS -->
+                    {{-- BARRA DE FILTROS INTERACTIVOS (Buscador en vivo + Selector de Bodega) --}}
                     <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 pt-2">
                         
-                        <!-- Buscador en Vivo -->
+                        {{-- Buscador en Vivo en el Cliente (Filtra por nombre, SKU, formato o bodega) --}}
                         <div class="relative flex-1 max-w-md">
                             <div class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
@@ -358,6 +389,7 @@
                                    x-model="searchQuery" 
                                    placeholder="Buscar por producto, SKU, formato o bodega..." 
                                    class="w-full pl-10 pr-4 py-2.5 rounded-2xl bg-slate-950/80 border border-slate-800 text-white placeholder-slate-500 text-xs focus:outline-none focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400 transition-all font-normal">
+                            {{-- Botón para limpiar el texto de búsqueda rápida --}}
                             <button x-show="searchQuery.length > 0" 
                                     @click="searchQuery = ''" 
                                     class="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-500 hover:text-white text-xs">
@@ -365,7 +397,7 @@
                             </button>
                         </div>
 
-                        <!-- Selector Rápido de Bodega (Dropdown) -->
+                        {{-- Selector Rápido de Bodega en Dropdown --}}
                         <div class="flex items-center gap-2">
                             <span class="text-xs text-slate-400 hidden sm:inline">Bodega:</span>
                             <select x-model="selectedBodega" 
@@ -379,10 +411,10 @@
 
                     </div>
 
-                    <!-- PÍLDORAS DE HORIZONTE DE VENCIMIENTO (Filtro por Rango) -->
+                    {{-- PÍLDORAS DE HORIZONTE DE VENCIMIENTO (Filtro por Urgencia Cronológica) --}}
                     <div class="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-none">
                         
-                        <!-- Todos -->
+                        {{-- Botón Filtro: Todos los Lotes --}}
                         <button @click="currentFilter = 'todos'" 
                                 :class="currentFilter === 'todos' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/30 border-indigo-400' : 'bg-slate-950/60 text-slate-400 hover:text-white border-slate-800'"
                                 class="px-3.5 py-2 rounded-xl text-xs font-medium border transition-all shrink-0 flex items-center gap-1.5">
@@ -390,7 +422,7 @@
                             <span class="px-1.5 py-0.5 rounded-md bg-white/10 text-[10px] font-bold">{{ $radarCounts['todos'] }}</span>
                         </button>
 
-                        <!-- Vencidos -->
+                        {{-- Botón Filtro: Lotes Ya Vencidos --}}
                         <button @click="currentFilter = 'vencido'" 
                                 :class="currentFilter === 'vencido' ? 'bg-rose-600 text-white shadow-lg shadow-rose-600/30 border-rose-400' : 'bg-slate-950/60 text-rose-400 hover:bg-rose-500/10 border-slate-800'"
                                 class="px-3.5 py-2 rounded-xl text-xs font-medium border transition-all shrink-0 flex items-center gap-1.5">
@@ -398,7 +430,7 @@
                             <span class="px-1.5 py-0.5 rounded-md bg-rose-500/20 text-[10px] font-bold">{{ $radarCounts['vencido'] }}</span>
                         </button>
 
-                        <!-- Crítico < 7 Días -->
+                        {{-- Botón Filtro: Crítico (< 7 Días restantes) --}}
                         <button @click="currentFilter = 'critico'" 
                                 :class="currentFilter === 'critico' ? 'bg-amber-600 text-white shadow-lg shadow-amber-600/30 border-amber-400' : 'bg-slate-950/60 text-amber-400 hover:bg-amber-500/10 border-slate-800'"
                                 class="px-3.5 py-2 rounded-xl text-xs font-medium border transition-all shrink-0 flex items-center gap-1.5">
@@ -406,7 +438,7 @@
                             <span class="px-1.5 py-0.5 rounded-md bg-amber-500/20 text-[10px] font-bold">{{ $radarCounts['critico'] }}</span>
                         </button>
 
-                        <!-- Próximos 30 Días -->
+                        {{-- Botón Filtro: Próximos 30 Días --}}
                         <button @click="currentFilter = 'alerta30'" 
                                 :class="currentFilter === 'alerta30' ? 'bg-yellow-600 text-white shadow-lg shadow-yellow-600/30 border-yellow-400' : 'bg-slate-950/60 text-yellow-400 hover:bg-yellow-500/10 border-slate-800'"
                                 class="px-3.5 py-2 rounded-xl text-xs font-medium border transition-all shrink-0 flex items-center gap-1.5">
@@ -414,7 +446,7 @@
                             <span class="px-1.5 py-0.5 rounded-md bg-yellow-500/20 text-[10px] font-bold">{{ $radarCounts['alerta30'] }}</span>
                         </button>
 
-                        <!-- Próximos 60 Días -->
+                        {{-- Botón Filtro: Próximos 60 Días --}}
                         <button @click="currentFilter = 'alerta60'" 
                                 :class="currentFilter === 'alerta60' ? 'bg-sky-600 text-white shadow-lg shadow-sky-600/30 border-sky-400' : 'bg-slate-950/60 text-sky-400 hover:bg-sky-500/10 border-slate-800'"
                                 class="px-3.5 py-2 rounded-xl text-xs font-medium border transition-all shrink-0 flex items-center gap-1.5">
@@ -422,7 +454,8 @@
                             <span class="px-1.5 py-0.5 rounded-md bg-sky-500/20 text-[10px] font-bold">{{ $radarCounts['alerta60'] }}</span>
                         </button>
 
-                        <!-- Próximos 90 Días -->
+                        {{-- Botón Filtro: Próximos 90 Días --}}
+
                         <button @click="currentFilter = 'alerta90'" 
                                 :class="currentFilter === 'alerta90' ? 'bg-purple-600 text-white shadow-lg shadow-purple-600/30 border-purple-400' : 'bg-slate-950/60 text-purple-400 hover:bg-purple-500/10 border-slate-800'"
                                 class="px-3.5 py-2 rounded-xl text-xs font-medium border transition-all shrink-0 flex items-center gap-1.5">
@@ -430,7 +463,7 @@
                             <span class="px-1.5 py-0.5 rounded-md bg-purple-500/20 text-[10px] font-bold">{{ $radarCounts['alerta90'] }}</span>
                         </button>
 
-                        <!-- Óptimos -->
+                        {{-- Botón Filtro: Óptimos (> 90 Días) --}}
                         <button @click="currentFilter = 'optimo'" 
                                 :class="currentFilter === 'optimo' ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-600/30 border-emerald-400' : 'bg-slate-950/60 text-emerald-400 hover:bg-emerald-500/10 border-slate-800'"
                                 class="px-3.5 py-2 rounded-xl text-xs font-medium border transition-all shrink-0 flex items-center gap-1.5">
@@ -440,13 +473,16 @@
 
                     </div>
 
-                    <!-- TABLA / CARDS DE LOTES FEFO -->
+                    {{-- Indicador visual para pantallas móviles: Desplazamiento horizontal sugerido --}}
                     <div class="sm:hidden flex items-center justify-between text-[11px] text-slate-400 px-1">
                         <span>Lotes en rotación</span>
                         <span class="text-indigo-400 font-medium">← Desliza horizontalmente →</span>
                     </div>
+
+                    {{-- Contenedor con scroll horizontal para la tabla de inventario FEFO --}}
                     <div class="overflow-x-auto rounded-2xl border border-slate-800/80 bg-slate-950/60 scrollbar-thin">
                         <table class="w-full text-left border-collapse min-w-[700px]">
+                            {{-- Encabezado de columnas de la tabla --}}
                             <thead>
                                 <tr class="border-b border-slate-800 text-[11px] font-semibold text-slate-400 tracking-wider bg-slate-900/80">
                                     <th class="py-3 px-4">PRODUCTO & SKU</th>
@@ -457,10 +493,11 @@
                                     <th class="py-3 px-4 text-right">ACCIÓN</th>
                                 </tr>
                             </thead>
+                            {{-- Cuerpo de la tabla: Renderizado reactivo Alpine x-for sobre 'paginatedLotes' --}}
                             <tbody class="divide-y divide-slate-800/60 text-xs">
                                 <template x-for="lote in paginatedLotes" :key="lote.id">
                                     <tr class="hover:bg-slate-900/60 transition-colors">
-                                        <!-- Producto & SKU -->
+                                        {{-- Celda 1: Nombre de producto, SKU en monospace y formato/capacidad --}}
                                         <td class="py-3 px-4">
                                             <div class="font-bold text-white text-sm" x-text="lote.producto_nombre"></div>
                                             <div class="flex items-center gap-2 mt-1">
@@ -469,7 +506,7 @@
                                             </div>
                                         </td>
 
-                                        <!-- Bodega -->
+                                        {{-- Celda 2: Bodega asignada con chip identificador y punto cian --}}
                                         <td class="py-3 px-4">
                                             <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-slate-800/80 border border-slate-700 text-slate-200 font-medium">
                                                 <span class="w-1.5 h-1.5 rounded-full bg-cyan-400"></span>
@@ -477,50 +514,57 @@
                                             </span>
                                         </td>
 
-                                        <!-- Stock -->
+                                        {{-- Celda 3: Stock disponible formateado con separador de miles es-CL --}}
                                         <td class="py-3 px-4 text-center">
                                             <span class="font-bold text-base text-white" x-text="new Intl.NumberFormat('es-CL').format(lote.cantidad)"></span>
                                             <span class="text-[10px] text-slate-400 block font-normal">unidades</span>
                                         </td>
 
-                                        <!-- Fecha Vencimiento -->
+                                        {{-- Celda 4: Fecha de vencimiento exacta (YYYY-MM-DD) --}}
                                         <td class="py-3 px-4 font-mono font-medium text-slate-200" x-text="lote.fecha_vencimiento"></td>
 
-                                        <!-- Urgencia y Cuenta Regresiva -->
+                                        {{-- Celda 5: Badges condicionales de Urgencia y Cuenta Regresiva según dias_restantes --}}
                                         <td class="py-3 px-4">
+                                            {{-- Caso 1: Lote ya vencido (días negativos) con ping animado rojo --}}
                                             <template x-if="lote.dias_restantes < 0">
                                                 <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-rose-500/20 text-rose-300 border border-rose-500/40 shadow-[0_0_12px_rgba(244,63,94,0.3)]">
                                                     <span class="w-2 h-2 rounded-full bg-rose-500 animate-ping"></span>
                                                     <span>VENCIDO HACE <strong x-text="Math.abs(lote.dias_restantes)"></strong> DÍAS</span>
                                                 </span>
                                             </template>
+                                            {{-- Caso 2: Vence hoy exactamente con pulso de advertencia --}}
                                             <template x-if="lote.dias_restantes === 0">
                                                 <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-rose-500/20 text-rose-300 border border-rose-500/40">
                                                     <span class="w-2 h-2 rounded-full bg-rose-500 animate-pulse"></span>
                                                     <span>¡VENCE HOY!</span>
                                                 </span>
                                             </template>
+                                            {{-- Caso 3: Nivel Crítico (1 a 7 días restantes) en tono ámbar vibrante --}}
                                             <template x-if="lote.dias_restantes > 0 && lote.dias_restantes <= 7">
                                                 <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40">
                                                     <span class="w-2 h-2 rounded-full bg-amber-400 animate-pulse"></span>
                                                     <span>VENCE EN <strong x-text="lote.dias_restantes"></strong> DÍAS</span>
                                                 </span>
                                             </template>
+                                            {{-- Caso 4: Alerta 30 Días (8 a 30 días restantes) en tono amarillo --}}
                                             <template x-if="lote.dias_restantes > 7 && lote.dias_restantes <= 30">
                                                 <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-yellow-500/20 text-yellow-300 border border-yellow-500/40">
                                                     <span>⚠️ <strong x-text="lote.dias_restantes"></strong> DÍAS RESTANTES</span>
                                                 </span>
                                             </template>
+                                            {{-- Caso 5: Alerta 60 Días (31 a 60 días) en tono celeste --}}
                                             <template x-if="lote.dias_restantes > 30 && lote.dias_restantes <= 60">
                                                 <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-sky-500/10 text-sky-300 border border-sky-500/30">
                                                     <span>📅 <strong x-text="lote.dias_restantes"></strong> Días</span>
                                                 </span>
                                             </template>
+                                            {{-- Caso 6: Alerta 90 Días (61 a 90 días) en tono morado --}}
                                             <template x-if="lote.dias_restantes > 60 && lote.dias_restantes <= 90">
                                                 <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-purple-500/10 text-purple-300 border border-purple-500/30">
                                                     <span>📆 <strong x-text="lote.dias_restantes"></strong> Días</span>
                                                 </span>
                                             </template>
+                                            {{-- Caso 7: Estado Óptimo (más de 90 días de vida útil) en tono esmeralda --}}
                                             <template x-if="lote.dias_restantes > 90">
                                                 <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
                                                     <span>🛡️ Óptimo (<strong x-text="lote.dias_restantes"></strong>d)</span>
@@ -528,7 +572,7 @@
                                             </template>
                                         </td>
 
-                                        <!-- Acción -->
+                                        {{-- Celda 6: Botón de acción hacia el módulo de lotes con filtro por ID --}}
                                         <td class="py-3 px-4 text-right">
                                             <a :href="'{{ route('lotes.index') }}?lote_id=' + lote.id" 
                                                class="inline-flex items-center gap-1 px-3 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white text-xs transition-colors border border-slate-700 font-normal">
@@ -539,15 +583,18 @@
                                     </tr>
                                 </template>
 
-                                <!-- Estado Vacío -->
+                                {{-- Estado Vacío: Se muestra cuando ningún lote cumple con los filtros activos --}}
                                 <tr x-show="filteredLotes.length === 0">
                                     <td colspan="6" class="py-12 text-center text-slate-500">
                                         <div class="max-w-xs mx-auto space-y-3">
+                                            {{-- Ícono ilustrativo de búsqueda sin resultados --}}
                                             <div class="w-12 h-12 rounded-2xl bg-slate-800/80 border border-slate-700 text-slate-400 mx-auto flex items-center justify-center text-xl">
                                                 🔍
                                             </div>
+                                            {{-- Mensaje de información para el usuario --}}
                                             <p class="text-sm font-medium text-slate-300">No se encontraron lotes</p>
                                             <p class="text-xs text-slate-500">No hay lotes que coincidan con los filtros aplicados en este momento.</p>
+                                            {{-- Botón para resetear todos los filtros aplicados --}}
                                             <button @click="resetAllFilters()" class="px-4 py-2 rounded-xl bg-indigo-600/80 hover:bg-indigo-500 text-white text-xs font-medium transition-colors">
                                                 Restablecer Filtros
                                             </button>
@@ -558,18 +605,22 @@
                         </table>
                     </div>
 
-                    <!-- PAGINACIÓN DEL RADAR -->
+                    {{-- Controles de Paginación del Radar FEFO (Visible solo si totalPages > 1) --}}
                     <div x-show="totalPages > 1" class="flex flex-col sm:flex-row items-center justify-between gap-4 pt-2">
+                        {{-- Indicador de página actual vs total de páginas disponibles --}}
                         <div class="text-xs text-slate-400 font-normal">
                             Página <strong class="text-white" x-text="currentPage"></strong> de <strong class="text-white" x-text="totalPages"></strong>
                         </div>
+                        {{-- Botones de navegación Anterior / Siguiente con desactivación condicional --}}
                         <div class="flex items-center gap-2">
+                            {{-- Botón de página anterior --}}
                             <button @click="prevPage()" 
                                     :disabled="currentPage === 1" 
                                     :class="currentPage === 1 ? 'opacity-40 cursor-not-allowed bg-slate-900 border-slate-800 text-slate-600' : 'bg-slate-800 hover:bg-slate-700 border-slate-700 text-slate-200'"
                                     class="px-3.5 py-1.5 rounded-xl border text-xs font-medium transition-colors">
                                 ← Anterior
                             </button>
+                            {{-- Botón de página siguiente --}}
                             <button @click="nextPage()" 
                                     :disabled="currentPage === totalPages" 
                                     :class="currentPage === totalPages ? 'opacity-40 cursor-not-allowed bg-slate-900 border-slate-800 text-slate-600' : 'bg-slate-800 hover:bg-slate-700 border-slate-700 text-slate-200'"
@@ -582,29 +633,35 @@
                 </div>
             </div>
 
-            <!-- ROW 4: ANALYTICS MODERNOS (Chart.js Rediseñados) -->
+            {{-- ========================================================================= --}}
+            {{-- ROW 4: ANALYTICS Y GRÁFICOS DE TENDENCIA TEMPORAL (Chart.js)               --}}
+            {{-- ========================================================================= --}}
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 
-                <!-- Gráfico 1: Flujo Semanal de Ventas (Curva Moderna Indigo) -->
+                {{-- Gráfico 1: Flujo Semanal de Ventas (Curva de Área Indigo con Gradiente) --}}
                 <div class="rounded-3xl bg-slate-900/60 border border-slate-800/80 p-6 backdrop-blur-xl shadow-xl flex flex-col justify-between">
+                    {{-- Encabezado del gráfico: Título, indicador de tendencia y monto total semanal --}}
                     <div class="flex items-center justify-between mb-4">
                         <div>
                             <span class="text-xs font-medium text-slate-400 tracking-wider">TENDENCIA SEMANAL</span>
                             <h4 class="text-lg font-bold text-white tracking-tight mt-0.5">Flujo de Salidas / Ventas</h4>
                         </div>
+                        {{-- Badge con la suma total facturada en los últimos 7 días --}}
                         <div class="text-right">
                             <span class="text-xs font-mono text-emerald-400 font-semibold bg-emerald-500/10 px-2 py-1 rounded-lg border border-emerald-500/20">
                                 ${{ number_format($chartVentasData->sum(), 0, ',', '.') }} CLP
                             </span>
                         </div>
                     </div>
+                    {{-- Lienzo Canvas donde Chart.js dibuja la curva suave con gradiente --}}
                     <div class="relative w-full h-[260px]">
                         <canvas id="ventasSemanaChart"></canvas>
                     </div>
                 </div>
 
-                <!-- Gráfico 2: Proyección de Vencimientos por Mes -->
+                {{-- Gráfico 2: Proyección de Vencimientos por Mes (Barras Horizontales 4 Meses) --}}
                 <div class="rounded-3xl bg-slate-900/60 border border-slate-800/80 p-6 backdrop-blur-xl shadow-xl flex flex-col justify-between">
+                    {{-- Encabezado del gráfico: Horizonte temporal y enlace rápido al listado de lotes --}}
                     <div class="flex items-center justify-between mb-4">
                         <div>
                             <span class="text-xs font-medium text-slate-400 tracking-wider">HORIZONTE TEMPORAL</span>
@@ -614,6 +671,7 @@
                             Ver Lotes
                         </a>
                     </div>
+                    {{-- Lienzo Canvas donde Chart.js dibuja las barras de alerta de vencimiento --}}
                     <div class="relative w-full h-[260px]">
                         <canvas id="vencimientosMesChart"></canvas>
                     </div>
@@ -621,10 +679,12 @@
 
             </div>
 
-            <!-- ROW 5: DISTRIBUCIÓN DE INVENTARIO (Donuts Modernos) -->
+            {{-- ========================================================================= --}}
+            {{-- ROW 5: DISTRIBUCIÓN DE INVENTARIO (Gráficos Doughnut / Donas Modernas)     --}}
+            {{-- ========================================================================= --}}
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                 
-                <!-- Dona 1: Stock por Bodega -->
+                {{-- Dona 1: Distribución Física de Stock Disponible por Bodega --}}
                 <div class="rounded-3xl bg-slate-900/60 border border-slate-800/80 p-6 backdrop-blur-xl shadow-xl">
                     <div class="flex items-center justify-between mb-4">
                         <div>
@@ -632,6 +692,7 @@
                             <h4 class="text-base font-bold text-white tracking-tight mt-0.5">Stock Disponible por Bodega</h4>
                         </div>
                     </div>
+                    {{-- Contenedor Canvas del gráfico circular o mensaje de estado vacío --}}
                     <div class="relative w-full h-[240px]">
                         @if(count($chartBodegaLabels) > 0)
                             <canvas id="stockBodegaChart"></canvas>
@@ -641,7 +702,7 @@
                     </div>
                 </div>
 
-                <!-- Dona 2: Stock por Proveedor -->
+                {{-- Dona 2: Distribución de Stock por Proveedor / Marca Registrada --}}
                 <div class="rounded-3xl bg-slate-900/60 border border-slate-800/80 p-6 backdrop-blur-xl shadow-xl">
                     <div class="flex items-center justify-between mb-4">
                         <div>
@@ -649,6 +710,7 @@
                             <h4 class="text-base font-bold text-white tracking-tight mt-0.5">Stock por Marca / Distribuidor</h4>
                         </div>
                     </div>
+                    {{-- Contenedor Canvas del gráfico circular o mensaje de estado vacío --}}
                     <div class="relative w-full h-[240px]">
                         @if(count($chartLabels) > 0)
                             <canvas id="stockProveedorChart"></canvas>
@@ -663,18 +725,37 @@
         </div>
     </div>
 
-    <!-- Script de Alpine.js para interactividad instantánea -->
+    {{-- ========================================================================= --}}
+    {{-- SCRIPTS FRONTEND: Controladores Alpine.js & Inicialización de Chart.js     --}}
+    {{-- ========================================================================= --}}
     <script>
+        /**
+         * Componente reactivo Alpine.js: dashboardHub()
+         * Administra en memoria el filtrado instantáneo, paginación local y búsqueda
+         * sin recargar la página para el Radar de Vencimientos FEFO y Hub de Bodegas.
+         */
         function dashboardHub() {
             return {
+                // Colección completa de lotes inyectada desde el controlador Laravel
                 allLotes: {!! json_encode($lotesRadar) !!},
+                // Metadatos y stock por bodega para la barra superior de bodegas
                 bodegas: {!! json_encode($bodegasDetalle) !!},
+                // ID de bodega seleccionada para el filtro (null = ver todas)
                 selectedBodega: null,
+                // Filtro actual de horizonte temporal ('todos', 'vencido', 'critico', etc.)
                 currentFilter: 'todos',
+                // Texto ingresado en el buscador en vivo
                 searchQuery: '',
+                // Puntero de paginación actual (base 1)
                 currentPage: 1,
+                // Cantidad de filas por página en la tabla FEFO
                 perPage: 10,
 
+                /**
+                 * Alterna la selección de una bodega en el Hub superior.
+                 * Si ya está seleccionada la deselecciona; de lo contrario la activa.
+                 * Reinicia la paginación a la primera página.
+                 */
                 toggleBodega(id) {
                     if (this.selectedBodega === id) {
                         this.selectedBodega = null;
@@ -684,11 +765,17 @@
                     this.currentPage = 1;
                 },
 
+                /**
+                 * Restablece únicamente el filtro de bodega seleccionada.
+                 */
                 resetBodegaFilter() {
                     this.selectedBodega = null;
                     this.currentPage = 1;
                 },
 
+                /**
+                 * Restablece todos los filtros activos (bodega, horizonte temporal y buscador).
+                 */
                 resetAllFilters() {
                     this.selectedBodega = null;
                     this.currentFilter = 'todos';
@@ -696,25 +783,34 @@
                     this.currentPage = 1;
                 },
 
+                /**
+                 * Obtiene el nombre legible de una bodega a partir de su ID.
+                 */
                 getBodegaName(id) {
                     const b = this.bodegas.find(item => item.id == id);
                     return b ? b.nombre : 'Bodega';
                 },
 
+                /**
+                 * Getter computado: Retorna la lista de lotes filtrada en cascada:
+                 * 1. Por bodega seleccionada
+                 * 2. Por categoría de vencimiento FEFO
+                 * 3. Por búsqueda de texto (nombre, SKU, bodega, formato, capacidad)
+                 */
                 get filteredLotes() {
                     let list = this.allLotes;
 
-                    // Filtro por Bodega
+                    // Paso 1: Filtro por Bodega
                     if (this.selectedBodega !== null) {
                         list = list.filter(l => l.bodega_id == this.selectedBodega);
                     }
 
-                    // Filtro por Urgencia/Horizonte
+                    // Paso 2: Filtro por Urgencia / Horizonte FEFO
                     if (this.currentFilter !== 'todos') {
                         list = list.filter(l => l.filtro === this.currentFilter);
                     }
 
-                    // Búsqueda en Vivo
+                    // Paso 3: Búsqueda de texto en vivo (case insensitive)
                     if (this.searchQuery.trim().length > 0) {
                         const q = this.searchQuery.toLowerCase().trim();
                         list = list.filter(l => 
@@ -729,21 +825,33 @@
                     return list;
                 },
 
+                /**
+                 * Getter computado: Calcula el total de páginas según la cantidad de items filtrados.
+                 */
                 get totalPages() {
                     return Math.max(1, Math.ceil(this.filteredLotes.length / this.perPage));
                 },
 
+                /**
+                 * Getter computado: Aplica el corte (slice) correspondiente a la página activa.
+                 */
                 get paginatedLotes() {
                     const start = (this.currentPage - 1) * this.perPage;
                     return this.filteredLotes.slice(start, start + this.perPage);
                 },
 
+                /**
+                 * Retrocede una página si no se encuentra en la primera.
+                 */
                 prevPage() {
                     if (this.currentPage > 1) {
                         this.currentPage--;
                     }
                 },
 
+                /**
+                 * Avanza una página si no se encuentra en la última.
+                 */
                 nextPage() {
                     if (this.currentPage < this.totalPages) {
                         this.currentPage++;
@@ -752,8 +860,11 @@
             };
         }
 
-        // Configuración de Chart.js moderna (Executive Dark Theme)
+        // =========================================================================
+        // Inicialización y configuración de Chart.js (Tema Ejecutivo Oscuro)
+        // =========================================================================
         document.addEventListener('DOMContentLoaded', function() {
+            // Paleta armónica de colores para gráficos circulares y métricas
             const chartPalette = [
                 '#6366f1', // Indigo 500
                 '#06b6d4', // Cyan 500
@@ -763,6 +874,7 @@
                 '#f43f5e'  // Rose 500
             ];
 
+            // Configuración visual compartida de tooltips flotantes con efecto glassmorphism
             const modernTooltip = {
                 backgroundColor: 'rgba(15, 23, 42, 0.95)',
                 titleColor: '#ffffff',
@@ -775,10 +887,13 @@
                 backdropFilter: 'blur(10px)'
             };
 
-            // 1. Chart: Ventas Semanales (Smooth Area Curve)
+            // ---------------------------------------------------------------------
+            // 1. Gráfico de Tendencia: Ventas Semanales (Smooth Area Curve)
+            // ---------------------------------------------------------------------
             const ctxVentas = document.getElementById('ventasSemanaChart');
             if (ctxVentas) {
                 let ctx = ctxVentas.getContext('2d');
+                // Gradiente vertical suave desde indigo semitransparente hacia transparente
                 let gradient = ctx.createLinearGradient(0, 0, 0, 260);
                 gradient.addColorStop(0, 'rgba(99, 102, 241, 0.4)');
                 gradient.addColorStop(1, 'rgba(99, 102, 241, 0.0)');
@@ -793,7 +908,7 @@
                             backgroundColor: gradient,
                             borderColor: '#6366f1',
                             borderWidth: 3,
-                            tension: 0.4,
+                            tension: 0.4, // Curva Bezier suave
                             fill: true,
                             pointBackgroundColor: '#0f172a',
                             pointBorderColor: '#818cf8',
@@ -810,6 +925,7 @@
                             tooltip: {
                                 ...modernTooltip,
                                 callbacks: {
+                                    // Formato de moneda chilena en el tooltip
                                     label: context => 'Ventas: $' + new Intl.NumberFormat('es-CL').format(context.raw)
                                 }
                             }
@@ -838,10 +954,13 @@
                 });
             }
 
-            // 2. Chart: Lotes por Vencer (4 Meses - Modern Rounded Bars)
+            // ---------------------------------------------------------------------
+            // 2. Gráfico de Barras: Lotes por Vencer en 4 Meses
+            // ---------------------------------------------------------------------
             const ctxVenc = document.getElementById('vencimientosMesChart');
             if (ctxVenc) {
                 let ctx = ctxVenc.getContext('2d');
+                // Gradiente vertical en tono rose para indicar advertencia preventiva
                 let gradient = ctx.createLinearGradient(0, 0, 0, 260);
                 gradient.addColorStop(0, 'rgba(244, 63, 94, 0.9)');
                 gradient.addColorStop(1, 'rgba(244, 63, 94, 0.4)');
@@ -895,7 +1014,9 @@
                 });
             }
 
-            // 3. Chart: Stock por Bodega (Doughnut Moderno)
+            // ---------------------------------------------------------------------
+            // 3. Gráfico Circular (Doughnut): Stock Disponible por Bodega
+            // ---------------------------------------------------------------------
             @if(count($chartBodegaLabels) > 0)
             const ctxBodega = document.getElementById('stockBodegaChart');
             if (ctxBodega) {
@@ -914,7 +1035,7 @@
                     options: {
                         responsive: true,
                         maintainAspectRatio: false,
-                        cutout: '76%',
+                        cutout: '76%', // Anillo fino moderno
                         plugins: {
                             legend: {
                                 position: 'bottom',
@@ -937,7 +1058,9 @@
             }
             @endif
 
-            // 4. Chart: Stock por Proveedor (Doughnut Moderno)
+            // ---------------------------------------------------------------------
+            // 4. Gráfico Circular (Doughnut): Stock por Proveedor / Marca
+            // ---------------------------------------------------------------------
             @if(count($chartLabels) > 0)
             const ctxProveedor = document.getElementById('stockProveedorChart');
             if (ctxProveedor) {
@@ -956,7 +1079,7 @@
                     options: {
                         responsive: true,
                         maintainAspectRatio: false,
-                        cutout: '76%',
+                        cutout: '76%', // Anillo fino moderno
                         plugins: {
                             legend: {
                                 position: 'bottom',

@@ -1,55 +1,88 @@
+{{-- 
+========================================================================================
+VISTA: DETALLE Y GESTIÓN DE RECEPCIÓN DE MERCADERÍA
+RUTA: /recepciones/{recepcion}
+CONTROLADOR: RecepcionController@show
+PROPÓSITO:
+- Mostrar el resumen general de la recepción: Proveedor, bodega receptora, N° de documento y fecha.
+- Si la recepción está en estado BORRADOR:
+  * Permitir agregar productos con buscador fuzzy-match (tolerancia a faltas ortográficas).
+  * Auto-detección de lógica FEFO del producto (fecha de elaboración automática vs vencimiento explícito).
+  * Integración con modal de Ajuste Masivo de inventario.
+  * Eliminar ítems agregados erróneamente antes de confirmar.
+  * Botón de confirmación final que bloquea la recepción e ingresa formalmente el stock al inventario.
+- Si la recepción está CONFIRMADA:
+  * Presentar la auditoría inmutable de los productos recibidos, sus costos, subtotales y fechas de caducidad.
+- Diseño responsivo dual: Tabla completa para Desktop y tarjetas modulares para Mobile.
+========================================================================================
+--}}
+
 <x-app-layout>
+    {{-- Slot del encabezado: Muestra número de folio, estado actual y botón de retorno --}}
     <x-slot name="header">
         <div class="flex items-center justify-between">
             <h2 class="text-xl font-semibold leading-tight text-gray-800">
                 {{ __('Recepción #') }}{{ str_pad($recepcion->id, 5, '0', STR_PAD_LEFT) }}
+                {{-- Distintivo visual del estado de la recepción --}}
                 @if($recepcion->estado === \App\Enums\EstadoRecepcion::CONFIRMADO)
                     <span class="ml-2 bg-green-100 text-green-800 text-sm font-medium px-2.5 py-0.5 rounded">Confirmada</span>
                 @else
                     <span class="ml-2 bg-yellow-100 text-yellow-800 text-sm font-medium px-2.5 py-0.5 rounded">Borrador</span>
                 @endif
             </h2>
+            {{-- Enlace para volver a la lista general de recepciones --}}
             <a href="{{ route('recepciones.index') }}" class="px-5 py-2.5 text-sm font-semibold text-gray-700 transition-all bg-white border border-gray-300 hover:bg-gray-50 rounded-xl shadow-sm">
                 &larr; Volver
             </a>
         </div>
     </x-slot>
 
+    {{-- Contenedor principal de la vista --}}
     <div class="py-6">
         <div class="mx-auto max-w-7xl sm:px-6 lg:px-8">
             
+            {{-- Alerta Flash: Mensaje de éxito tras realizar una operación --}}
             @if (session('success'))
                 <div class="p-4 mb-4 text-sm text-green-700 bg-green-100 rounded-lg" role="alert">
                     <span class="font-medium">Éxito!</span> {{ session('success') }}
                 </div>
             @endif
+            {{-- Alerta Flash: Mensaje de error si una validación o transacción falla --}}
             @if (session('error'))
                 <div class="p-4 mb-4 text-sm text-red-700 bg-red-100 rounded-lg" role="alert">
                     <span class="font-medium">Error!</span> {{ session('error') }}
                 </div>
             @endif
 
-            <!-- Cabecera -->
+            {{-- =========================================================================
+                 CARD: INFORMACIÓN GENERAL DEL INGRESO
+                 Muestra los metadatos principales asociados a la recepción física
+                 ========================================================================= --}}
             <div class="bg-slate-900/50 backdrop-blur-md shadow-lg shadow-black/50 sm:rounded-xl border border-slate-800/60 overflow-hidden relative mb-6">
                 <div class="p-6 text-slate-300 border-b border-slate-800/50">
                     <h3 class="mb-6 text-lg font-semibold text-white border-b border-slate-700/50 pb-2">Información General del Ingreso</h3>
                     <div class="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-4">
+                        {{-- Proveedor que despachó la mercadería --}}
                         <div class="bg-slate-800/40 p-4 rounded-lg border border-slate-700/30">
                             <p class="text-sm font-medium text-slate-400">Proveedor</p>
                             <p class="mt-1 text-lg font-bold text-white">{{ optional($recepcion->proveedor)->nombre }}</p>
                         </div>
+                        {{-- Bodega donde se almacenará el stock --}}
                         <div class="bg-slate-800/40 p-4 rounded-lg border border-slate-700/30">
                             <p class="text-sm font-medium text-slate-400">Bodega Destino</p>
                             <p class="mt-1 text-lg font-bold text-indigo-400">{{ optional($recepcion->bodega)->nombre }}</p>
                         </div>
+                        {{-- Fecha y hora del registro del ingreso --}}
                         <div class="bg-slate-800/40 p-4 rounded-lg border border-slate-700/30">
                             <p class="text-sm font-medium text-slate-400">Fecha de Recepción</p>
                             <p class="mt-1 text-lg font-bold text-white">{{ \Carbon\Carbon::parse($recepcion->fecha_recepcion)->format('d/m/Y H:i') }}</p>
                         </div>
+                        {{-- Folio de la factura, guía o documento de transporte --}}
                         <div class="bg-slate-800/40 p-4 rounded-lg border border-slate-700/30">
                             <p class="text-sm font-medium text-slate-400">Documento Referencia</p>
                             <p class="mt-1 text-lg font-bold text-emerald-400">{{ $recepcion->documento_referencia ?? 'N/A' }}</p>
                         </div>
+                        {{-- Observaciones adicionales registradas por el operador --}}
                         <div class="lg:col-span-4 bg-slate-800/40 p-4 rounded-lg border border-slate-700/30">
                             <p class="text-sm font-medium text-slate-400">Observaciones</p>
                             <p class="mt-1 text-white font-medium">{{ $recepcion->observaciones ?? '-' }}</p>
@@ -58,22 +91,30 @@
                 </div>
             </div>
 
-            <!-- Agregar Producto (Solo si es BORRADOR) -->
+            {{-- =========================================================================
+                 SECCIÓN: FORMULARIO PARA AGREGAR PRODUCTO
+                 Solo visible si la recepción está en estado BORRADOR
+                 ========================================================================= --}}
             @if($recepcion->estado === \App\Enums\EstadoRecepcion::BORRADOR)
             <div class="bg-slate-900/50 backdrop-blur-md shadow-lg shadow-black/50 sm:rounded-xl border border-slate-800/60 overflow-hidden relative mb-6">
                 <div class="p-6 border-l-4 border-indigo-500">
                     <h3 class="mb-4 text-lg font-semibold text-white">Agregar Producto</h3>
                     
+                    {{-- Formulario para almacenar una nueva línea de producto en la recepción --}}
                     <form method="POST" action="{{ route('recepciones.detalles.store', $recepcion) }}">
                         @csrf
                         <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4 items-end">
+                            
+                            {{-- Contenedor del Buscador de Producto con Alpine.js y algoritmo Fuzzy Match --}}
                             <div class="sm:col-span-2 flex items-end gap-2" x-data='{ 
                                 searchText: @json(old("producto_search")), 
                                 productos: {!! $productosJson !!},
                                 openDropdown: false,
+                                // Devuelve el objeto del producto coincidente con el texto actual
                                 get selectedProduct() {
                                     return this.productos.find(p => p.text === this.searchText);
                                 },
+                                // Filtra el catálogo con tolerancia a errores ortográficos usando Levenshtein
                                 get filteredProductos() {
                                     if (!this.searchText) {
                                         return this.productos.slice(0, 50);
@@ -87,12 +128,13 @@
                                         }
                                     }
                                     
-                                    // Sort by best match (lowest score)
+                                    // Ordena por mejor coincidencia (menor puntaje de distancia)
                                     results.sort((a, b) => a.score - b.score);
                                     
                                     return results.slice(0, 50).map(r => r.item);
                                 }
                             }' x-init="
+                                // Observa el texto de búsqueda para conmutar los campos de fecha según el modo FEFO del producto
                                 $watch('searchText', value => {
                                     let p = selectedProduct;
                                     if(p) {
@@ -103,6 +145,7 @@
                                         toggleDateFieldsAlt('');
                                     }
                                 });
+                                // Si hay valor previo tras validación fallida, restaura el estado FEFO correspondiente
                                 if(searchText) {
                                     setTimeout(() => {
                                         let p = selectedProduct;
@@ -113,44 +156,50 @@
                                     }, 100);
                                 }
                             }">
+                                {{-- Input de búsqueda de producto con menú flotante de autocompletado --}}
                                 <div class="flex-1 relative" @click.away="openDropdown = false">
                                     <x-input-label for="producto_search" :value="__('Producto')" class="text-slate-300" />
                                     <input type="text" id="producto_search" x-model="searchText" @focus="openDropdown = true" @input="openDropdown = true" @keydown.escape="openDropdown = false" class="block w-full mt-1 bg-slate-800 border-slate-700 text-slate-300 rounded-md shadow-sm focus:border-indigo-500 focus:ring-indigo-500" placeholder="Escriba para buscar o seleccione..." required autocomplete="off">
                                     
-                                    <!-- Dropdown Autocomplete -->
+                                    {{-- Desplegable con resultados filtrados dinámicamente --}}
                                     <div x-show="openDropdown" class="absolute z-50 w-full mt-1 bg-slate-800 border border-slate-700 rounded-md shadow-2xl max-h-60 overflow-y-auto" style="display: none;" x-transition>
                                         <template x-for="p in filteredProductos" :key="p.id">
                                             <button type="button" @click="searchText = p.text; openDropdown = false; $refs.cantidadInput.focus();" class="w-full text-left px-4 py-2.5 text-sm text-slate-300 hover:bg-indigo-600 hover:text-white focus:bg-indigo-600 focus:text-white transition-colors border-b border-slate-700/50 last:border-0">
                                                 <span x-text="p.text" class="block truncate"></span>
                                             </button>
                                         </template>
+                                        {{-- Mensaje de estado cuando no se encuentran coincidencias --}}
                                         <div x-show="filteredProductos.length === 0" class="px-4 py-3 text-sm text-slate-500 italic text-center">
                                             No se encontraron productos.
                                         </div>
                                     </div>
+                                    {{-- Campos ocultos enviados con el formulario para registrar el producto --}}
                                     <input type="hidden" name="catalogo_producto_id" :value="selectedProduct ? selectedProduct.id : ''">
                                     <input type="hidden" name="producto_search" :value="searchText">
                                     <input type="hidden" id="fefo_mode_hidden" value="">
                                     <x-input-error :messages="$errors->get('catalogo_producto_id')" class="mt-2" />
                                 </div>
+                                {{-- Botón de acceso rápido para realizar un Ajuste Masivo de inventario del producto seleccionado --}}
                                 <button type="button" @click="if(selectedProduct) { $dispatch('open-ajuste-masivo', { producto: selectedProduct, lotes: selectedProduct.lotes }) }" :disabled="!selectedProduct" class="shrink-0 mb-[1px] px-3 py-2 bg-indigo-600 hover:bg-indigo-500 rounded-md text-white font-bold text-sm flex items-center shadow-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed h-[42px]" title="Ajuste Masivo de Inventario">
                                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"></path></svg>
                                 </button>
                             </div>
 
+                            {{-- Campo: Cantidad a ingresar con referencia de foco automático para Alpine.js --}}
                             <div>
                                 <x-input-label for="cantidad" :value="__('Cantidad')" class="text-slate-300" />
                                 <x-text-input id="cantidad" x-ref="cantidadInput" class="block w-full mt-1 bg-slate-800 border-slate-700 text-slate-300" type="number" step="0.01" min="0.01" name="cantidad" :value="old('cantidad', 1)" required />
                                 <x-input-error :messages="$errors->get('cantidad')" class="mt-2" />
                             </div>
 
+                            {{-- Campo: Costo de compra unitario pactado con el proveedor --}}
                             <div>
                                 <x-input-label for="precio_unitario" :value="__('Costo Unitario ($)')" class="text-slate-300" />
                                 <x-text-input id="precio_unitario" class="block w-full mt-1 bg-slate-800 border-slate-700 text-slate-300" type="number" step="0.01" min="0" name="precio_unitario" :value="old('precio_unitario', 0)" required />
                                 <x-input-error :messages="$errors->get('precio_unitario')" class="mt-2" />
                             </div>
                             
-                            <!-- Fechas (Se muestran u ocultan dinámicamente) -->
+                            {{-- Contenedor: Fecha de Elaboración (Se muestra si el modo FEFO del producto es 'auto') --}}
                             <div class="md:col-span-1" id="container_fecha_elaboracion" style="display: none;">
                                 <x-input-label for="fecha_elaboracion" :value="__('Fecha de Elaboración')" class="font-bold text-indigo-400" />
                                 <x-text-input id="fecha_elaboracion" class="block w-full mt-1 bg-slate-800 border-indigo-500/50 text-slate-300 focus:ring-indigo-500" type="date" name="fecha_elaboracion" :value="old('fecha_elaboracion')" />
@@ -158,6 +207,7 @@
                                 <p class="text-xs text-slate-400 mt-1">El vcto. se calculará solo.</p>
                             </div>
 
+                            {{-- Contenedor: Fecha de Vencimiento (Se muestra si el modo FEFO del producto es 'manual') --}}
                             <div class="md:col-span-1" id="container_fecha_vencimiento" style="display: none;">
                                 <x-input-label for="fecha_vencimiento" :value="__('Fecha Vencimiento (Explícita)')" class="font-bold text-rose-400" />
                                 <x-text-input id="fecha_vencimiento" class="block w-full mt-1 bg-slate-800 border-rose-500/50 text-slate-300 focus:ring-rose-500" type="date" name="fecha_vencimiento" :value="old('fecha_vencimiento')" />
@@ -165,6 +215,7 @@
                                 <p class="text-xs text-slate-400 mt-1">Ingresa el vcto. impreso.</p>
                             </div>
 
+                            {{-- Botón para agregar la fila a la recepción actual --}}
                             <div class="sm:col-span-2 flex flex-col sm:flex-row gap-2 justify-end items-stretch sm:items-end">
                                 <button type="submit" class="w-full sm:w-auto px-5 py-3 sm:py-2.5 text-sm font-semibold text-white transition-all bg-indigo-600 hover:bg-indigo-500 rounded-xl shadow-[0_0_15px_rgba(79,70,229,0.4)]">
                                     {{ __('Agregar a la Recepción') }}
@@ -173,6 +224,7 @@
                         </div>
                     </form>
                     
+                    {{-- Script de gestión dinámica de visibilidad de fechas según el método de cálculo de caducidad --}}
                     <script>
                         function toggleDateFieldsAlt(fefoMode) {
                             const elabContainer = document.getElementById('container_fecha_elaboracion');
@@ -180,17 +232,20 @@
                             const elabInput = document.getElementById('fecha_elaboracion');
                             const vencInput = document.getElementById('fecha_vencimiento');
                             
-                            // Reset required attributes and hide both initially
+                            // Restablece requeridos y oculta ambos contenedores por defecto
                             elabInput.required = false;
                             vencInput.required = false;
                             elabContainer.style.display = 'none';
                             vencContainer.style.display = 'none';
                             
+                            // Si el modo es 'auto', solicita solo la fecha de elaboración y calcula el vencimiento en backend
                             if (fefoMode === 'auto') {
                                 elabContainer.style.display = 'block';
                                 elabInput.required = true;
                                 vencInput.value = ''; // Limpiar vencimiento si no se usa
-                            } else if (fefoMode === 'manual') {
+                            } 
+                            // Si el modo es 'manual', solicita la fecha exacta impresa en el envase
+                            else if (fefoMode === 'manual') {
                                 vencContainer.style.display = 'block';
                                 vencInput.required = true;
                                 elabInput.value = ''; // Limpiar elaboracion si no se usa
@@ -201,7 +256,9 @@
             </div>
             @endif
 
-                    <!-- Tabla en Desktop / Cards en Móvil -->
+                    {{-- =========================================================================
+                         TABLA DE DETALLES: VISTA ESCRITORIO (Visible en pantallas sm o mayores)
+                         ========================================================================= --}}
                     <div class="hidden sm:block overflow-x-auto">
                         <table class="w-full text-sm text-left text-slate-400 whitespace-nowrap">
                             <thead class="text-xs text-slate-300 uppercase bg-slate-800/80 sticky top-0 z-0 shadow-sm border-b border-slate-700 backdrop-blur-sm">
@@ -212,6 +269,7 @@
                                     <th scope="col" class="px-6 py-3 text-right">Costo Unit.</th>
                                     <th scope="col" class="px-6 py-3 text-right">Subtotal</th>
                                     <th scope="col" class="px-6 py-3">Vencimiento</th>
+                                    {{-- Solo muestra columna de acciones de borrado en estado borrador --}}
                                     @if($recepcion->estado === \App\Enums\EstadoRecepcion::BORRADOR)
                                         <th scope="col" class="px-6 py-3">Acciones</th>
                                     @endif
@@ -219,14 +277,21 @@
                             </thead>
                             <tbody>
                                 @php $total = 0; @endphp
+                                {{-- Itera sobre las líneas de detalle asociadas a la recepción --}}
                                 @forelse ($recepcion->detalles as $detalle)
                                     @php $total += $detalle->subtotal; @endphp
                                     <tr class="border-b border-slate-800/50 bg-slate-900/30 hover:bg-slate-800/50 transition-colors">
+                                        {{-- Código SKU del producto --}}
                                         <td class="px-6 py-4 font-mono font-medium text-slate-200">{{ optional($detalle->producto)->sku }}</td>
+                                        {{-- Nombre comercial del producto --}}
                                         <td class="px-6 py-4 font-bold text-white">{{ optional($detalle->producto)->nombre }}</td>
+                                        {{-- Cantidad recibida y unidad de medida --}}
                                         <td class="px-6 py-4 text-right"><span class="bg-indigo-900/50 text-indigo-300 border border-indigo-700 px-3 py-1 rounded-lg font-bold text-base">{{ number_format($detalle->cantidad, 0, ',', '.') }} {{ optional($detalle->producto)->unidad_medida }}</span></td>
+                                        {{-- Costo de compra unitario --}}
                                         <td class="px-6 py-4 text-right text-slate-300">${{ number_format($detalle->precio_unitario, 0, ',', '.') }}</td>
+                                        {{-- Monto subtotal monetario de la línea --}}
                                         <td class="px-6 py-4 text-right font-bold text-emerald-400">${{ number_format($detalle->subtotal, 0, ',', '.') }}</td>
+                                        {{-- Fecha de caducidad asignada al lote --}}
                                         <td class="px-6 py-4">
                                             @if($detalle->fecha_vencimiento)
                                                 <span class="text-slate-200">{{ \Carbon\Carbon::parse($detalle->fecha_vencimiento)->format('d/m/Y') }}</span>
@@ -234,6 +299,7 @@
                                                 <span class="flex items-center gap-1 bg-orange-500/10 border border-orange-500/20 px-2 py-1 rounded w-max text-orange-400 font-medium"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>Falta Fecha</span>
                                             @endif
                                         </td>
+                                        {{-- Si es borrador, permite eliminar la línea con confirmación --}}
                                         @if($recepcion->estado === \App\Enums\EstadoRecepcion::BORRADOR)
                                             <td class="px-6 py-4">
                                                 <form action="{{ route('recepciones.detalles.destroy', [$recepcion, $detalle]) }}" method="POST" class="inline-block" onsubmit="return confirm('¿Quitar producto?');">
@@ -245,6 +311,7 @@
                                         @endif
                                     </tr>
                                 @empty
+                                    {{-- Mensaje para tabla vacía --}}
                                     <tr>
                                         <td colspan="{{ $recepcion->estado === \App\Enums\EstadoRecepcion::BORRADOR ? 7 : 6 }}" class="px-6 py-12 text-center text-slate-500 bg-slate-900/30">
                                             No hay productos en esta recepción.
@@ -252,6 +319,7 @@
                                     </tr>
                                 @endforelse
                             </tbody>
+                            {{-- Fila de totales generales al pie de la tabla --}}
                             @if($recepcion->detalles->count() > 0)
                                 <tfoot>
                                     <tr class="bg-slate-950/50 font-bold border-t border-slate-700/50">
@@ -264,17 +332,21 @@
                         </table>
                     </div>
 
-                    <!-- Vista Móvil: Cards por producto -->
+                    {{-- =========================================================================
+                         VISTA EN TARJETAS PARA DISPOSITIVOS MÓVILES (Visible solo en pantallas xs)
+                         ========================================================================= --}}
                     <div class="block sm:hidden space-y-3">
                         @php $total = 0; @endphp
                         @forelse ($recepcion->detalles as $detalle)
                             @php $total += $detalle->subtotal; @endphp
+                            {{-- Tarjeta de producto individual móvil --}}
                             <div class="bg-slate-800/50 border border-slate-700/50 rounded-xl p-4 space-y-2">
                                 <div class="flex items-start justify-between gap-2">
                                     <div>
                                         <p class="font-bold text-white text-base">{{ optional($detalle->producto)->nombre }}</p>
                                         <p class="text-xs font-mono text-slate-400">{{ optional($detalle->producto)->sku }}</p>
                                     </div>
+                                    {{-- Botón móvil para quitar producto si está en borrador --}}
                                     @if($recepcion->estado === \App\Enums\EstadoRecepcion::BORRADOR)
                                         <form action="{{ route('recepciones.detalles.destroy', [$recepcion, $detalle]) }}" method="POST" onsubmit="return confirm('¿Quitar producto?');">
                                             @csrf
@@ -285,6 +357,7 @@
                                         </form>
                                     @endif
                                 </div>
+                                {{-- Grilla de 3 columnas para métricas clave del ítem --}}
                                 <div class="grid grid-cols-3 gap-2 pt-2 border-t border-slate-700/30">
                                     <div class="text-center">
                                         <p class="text-[10px] uppercase text-slate-500 font-medium">Cantidad</p>
@@ -299,6 +372,7 @@
                                         <p class="text-sm font-bold text-emerald-400">${{ number_format($detalle->subtotal, 0, ',', '.') }}</p>
                                     </div>
                                 </div>
+                                {{-- Visualización de la fecha de caducidad en tarjeta móvil --}}
                                 <div class="flex items-center gap-2 pt-1">
                                     <svg class="w-4 h-4 text-slate-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
                                     @if($detalle->fecha_vencimiento)
@@ -311,6 +385,7 @@
                         @empty
                             <div class="py-12 text-center text-slate-500">No hay productos en esta recepción.</div>
                         @endforelse
+                        {{-- Total de recepción visible en interfaz móvil --}}
                         @if($recepcion->detalles->count() > 0)
                             <div class="flex justify-between items-center bg-slate-950/50 border border-slate-700/50 rounded-xl px-4 py-3 font-bold">
                                 <span class="text-slate-300 uppercase text-sm">Total Recepción</span>
@@ -322,7 +397,10 @@
                 </div>
             </div>
 
-            <!-- Confirmación -->
+            {{-- =========================================================================
+                 BOTÓN FINAL DE CONFIRMACIÓN DE RECEPCIÓN
+                 Acción irreversible que aplica el incremento de existencias en el inventario
+                 ========================================================================= --}}
             @if($recepcion->estado === \App\Enums\EstadoRecepcion::BORRADOR && $recepcion->detalles->count() > 0)
             <div class="mt-6 flex justify-end">
                 <form action="{{ route('recepciones.confirm', $recepcion) }}" method="POST" onsubmit="return confirm('¿Está seguro de CONFIRMAR esta recepción? Se ingresará el stock a la bodega y no podrá deshacer esta acción.');">
@@ -338,29 +416,41 @@
         </div>
     </div>
     
+    {{-- Componente Modal de Ajuste Masivo de existencias para la bodega de esta recepción --}}
     <x-ajuste-masivo-modal :bodega="$recepcion->bodega" />
 
+    {{-- =========================================================================
+         SCRIPTS: ALGORITMOS DE BÚSQUEDA FUZZY Y DISTANCIA DE LEVENSHTEIN
+         Permite la tolerancia a faltas tipográficas en el buscador de productos
+         ========================================================================= --}}
     <script>
-        // Funciones auxiliares para búsqueda tolerante a errores ortográficos (Fuzzy Match)
+        /**
+         * Calcula la distancia de Levenshtein entre dos cadenas utilizando programación dinámica.
+         * Mide el número mínimo de operaciones (inserción, eliminación o sustitución) necesarias
+         * para transformar una palabra en otra.
+         */
         window.levenshtein = function(a, b) {
             if (a.length === 0) return b.length;
             if (b.length === 0) return a.length;
             const matrix = [];
+            // Inicializa la primera columna
             for (let i = 0; i <= b.length; i++) {
                 matrix[i] = [i];
             }
+            // Inicializa la primera fila
             for (let j = 0; j <= a.length; j++) {
                 matrix[0][j] = j;
             }
+            // Itera la matriz comparando caracteres
             for (let i = 1; i <= b.length; i++) {
                 for (let j = 1; j <= a.length; j++) {
                     if (b.charAt(i - 1) === a.charAt(j - 1)) {
                         matrix[i][j] = matrix[i - 1][j - 1];
                     } else {
                         matrix[i][j] = Math.min(
-                            matrix[i - 1][j - 1] + 1, // substitution
-                            matrix[i][j - 1] + 1,     // insertion
-                            matrix[i - 1][j] + 1      // deletion
+                            matrix[i - 1][j - 1] + 1, // Sustitución
+                            matrix[i][j - 1] + 1,     // Inserción
+                            matrix[i - 1][j] + 1      // Eliminación
                         );
                     }
                 }
@@ -368,12 +458,19 @@
             return matrix[b.length][a.length];
         };
 
+        /**
+         * Realiza una coincidencia difusa (Fuzzy Match) entre la cadena de búsqueda del usuario
+         * y la descripción textual del producto en el catálogo.
+         * Devuelve un puntaje numérico (0 para coincidencia exacta, menor puntaje = mayor similitud, 999 = no coincide).
+         */
         window.fuzzyProductMatch = function(search, text) {
             search = search.toLowerCase().trim();
             text = text.toLowerCase();
             
-            if (text.includes(search)) return 0; // Match exacto
+            // Si el texto incluye directamente el término buscado, coincidencia perfecta inmediata
+            if (text.includes(search)) return 0;
             
+            // Divide en palabras individuales para tolerar desorden o espacios
             const searchWords = search.split(/\s+/);
             const textWords = text.split(/[\s,\[\]\-]+/);
             
@@ -396,7 +493,7 @@
                         }
                         
                         const dist = window.levenshtein(sw, tw);
-                        // Tolerancia de errores basada en el tamaño de la palabra
+                        // Define la tolerancia de caracteres errados en función de la longitud del término
                         const maxTypos = sw.length <= 3 ? 1 : (sw.length <= 5 ? 2 : 3);
                         
                         if (dist <= maxTypos && dist < bestWordScore) {
@@ -405,8 +502,9 @@
                     }
                 }
                 
+                // Si alguna de las palabras buscadas no encuentra coincidencia cercana, se descarta el producto
                 if (bestWordScore > 3) {
-                    return 999; // Rechaza si una palabra no se parece a nada
+                    return 999;
                 }
                 
                 totalScore += bestWordScore;

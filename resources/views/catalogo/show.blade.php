@@ -1,7 +1,29 @@
+{{--
+    =============================================================================
+    ERP DALLAS - VISTA DETALLE DEL PRODUCTO (show.blade.php)
+    =============================================================================
+    Propósito:
+    Presenta la ficha técnica y operacional 360° de un artículo del catálogo maestro.
+    
+    Secciones Principales:
+    1. Header: Navegación de retorno al catálogo y botón de edición.
+    2. Tarjeta Principal: SKU, estado activo/inactivo, nombre, descripción, precio
+       de venta sugerido, unidad de medida y fecha de creación en el sistema.
+    3. Grid de Stock en Bodegas: Agrupación en tiempo real del saldo disponible
+       en cada bodega física.
+    4. Historial de Compras/Recepciones: Tabla cronológica de ingresos asociados
+       a este producto (facturas, proveedores, cantidades).
+    5. Estado de Lotes y Vencimientos (FEFO): Tabla y tarjetas móviles con cada lote
+       físico, fechas de elaboración/vencimiento, semáforo de estado y modal Alpine
+       para editar fechas de caducidad.
+    =============================================================================
+--}}
 <x-app-layout>
+    {{-- Slot de cabecera con navegación de retorno y botón de acción principal --}}
     <x-slot name="header">
         <div class="flex items-center justify-between">
             <div class="flex items-center gap-4">
+                {{-- Botón para regresar al índice general del catálogo --}}
                 <a href="{{ route('catalogo.index') }}" class="p-2 transition-colors rounded-lg bg-slate-800/50 hover:bg-slate-700 text-slate-400 hover:text-slate-200">
                     <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>
                 </a>
@@ -9,6 +31,7 @@
                     Detalles del Producto
                 </h2>
             </div>
+            {{-- Enlace a la pantalla de edición del producto actual --}}
             <a href="{{ route('catalogo.edit', $catalogo) }}" class="px-5 py-2.5 text-sm font-semibold text-white transition-all bg-indigo-600 hover:bg-indigo-500 rounded-xl shadow-lg shadow-indigo-600/30">
                 Editar Producto
             </a>
@@ -18,13 +41,18 @@
     <div class="py-8">
         <div class="mx-auto max-w-7xl sm:px-6 lg:px-8 space-y-8">
             
-            <!-- Tarjeta de Info Principal -->
+            {{-- =====================================================================
+                 1. TARJETA DE INFORMACIÓN PRINCIPAL (Hero Card con Glassmorphism)
+                 ===================================================================== --}}
             <div class="overflow-hidden relative bg-slate-900/50 backdrop-blur-xl shadow-2xl sm:rounded-2xl border border-slate-800/60 p-8 group">
+                {{-- Marca de agua decorativa en fondo translúcido con icono de producto --}}
                 <div class="absolute top-0 right-0 p-8 opacity-5 group-hover:opacity-10 transition-opacity duration-500">
                     <svg class="w-48 h-48 text-indigo-400" fill="currentColor" viewBox="0 0 24 24"><path d="M20 7h-4V4c0-1.1-.9-2-2-2h-4C8.9 2 8 2.9 8 4v3H4c-1.1 0-2 .9-2 2v11c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V9c0-1.1-.9-2-2-2zM10 4h4v3h-4V4zm10 15H4V9h16v10z"/></svg>
                 </div>
+                
                 <div class="relative z-10 flex flex-col md:flex-row md:items-end justify-between gap-6">
                     <div>
+                        {{-- Badges de metadatos: SKU único y estado de comercialización --}}
                         <div class="flex items-center gap-3 mb-3">
                             <span class="px-3 py-1 text-xs font-bold tracking-wider text-indigo-400 uppercase bg-indigo-500/10 rounded-full border border-indigo-500/20 shadow-[0_0_10px_rgba(99,102,241,0.2)]">SKU: {{ $catalogo->sku }}</span>
                             @if($catalogo->activo)
@@ -33,9 +61,12 @@
                                 <span class="px-3 py-1 text-xs font-bold tracking-wider text-red-400 uppercase bg-red-500/10 rounded-full border border-red-500/20 shadow-[0_0_10px_rgba(239,68,68,0.2)]">Inactivo</span>
                             @endif
                         </div>
+                        {{-- Nombre oficial y descripción complementaria --}}
                         <h3 class="text-4xl font-black text-white tracking-tight">{{ $catalogo->nombre }}</h3>
                         <p class="mt-2 text-lg text-slate-400 max-w-2xl">{{ $catalogo->descripcion ?? 'Sin descripción disponible' }}</p>
                     </div>
+
+                    {{-- Indicador de precio y fecha de alta en el sistema --}}
                     <div class="text-left md:text-right flex flex-col md:items-end justify-between">
                         <div>
                             <p class="text-sm font-medium text-slate-500 uppercase tracking-widest mb-1">Precio Venta</p>
@@ -52,10 +83,12 @@
                 </div>
             </div>
 
-            <!-- Grid: Stock por Bodega y Recepciones -->
+            {{-- =====================================================================
+                 2. GRID: STOCK POR BODEGA Y HISTORIAL DE RECEPCIONES
+                 ===================================================================== --}}
             <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
                 
-                <!-- Stock por Bodega -->
+                {{-- Columna Izquierda: Existencias consolidadas por Almacén Físico --}}
                 <div class="lg:col-span-1 space-y-4">
                     <h4 class="text-lg font-bold text-white flex items-center gap-2">
                         <div class="p-2 bg-indigo-500/20 rounded-lg">
@@ -65,7 +98,7 @@
                     </h4>
                     
                     @php
-                        // Agrupar lotes por bodega y sumar cantidad
+                        // Agrupar los lotes por ID de bodega y totalizar las cantidades disponibles
                         $stockPorBodega = $catalogo->lotesStock->groupBy('bodega_id')->map(function($lotes) {
                             return [
                                 'bodega' => $lotes->first()->bodega->nombre ?? 'Desconocida',
@@ -74,6 +107,7 @@
                         });
                     @endphp
 
+                    {{-- Listado de saldos por cada almacén --}}
                     @forelse($stockPorBodega as $stock)
                         <div class="p-5 bg-slate-900/40 backdrop-blur-md border border-slate-800/60 rounded-xl hover:bg-slate-800/40 transition-colors shadow-lg">
                             <div class="flex justify-between items-center">
@@ -82,13 +116,14 @@
                             </div>
                         </div>
                     @empty
+                        {{-- Estado vacío si el producto no tiene saldo en ninguna bodega --}}
                         <div class="p-6 text-center bg-slate-900/30 border border-slate-800/50 rounded-xl shadow-inner">
                             <p class="text-slate-500 text-sm">No hay stock disponible en ninguna bodega.</p>
                         </div>
                     @endforelse
                 </div>
 
-                <!-- Historial de Recepciones -->
+                {{-- Columna Derecha: Trazabilidad histórica de compras y recepciones --}}
                 <div class="lg:col-span-2 space-y-4">
                     <h4 class="text-lg font-bold text-white flex items-center gap-2">
                         <div class="p-2 bg-cyan-500/20 rounded-lg">
@@ -98,6 +133,7 @@
                     </h4>
                     
                     <div class="bg-slate-900/50 backdrop-blur-xl border border-slate-800/60 rounded-2xl shadow-xl overflow-hidden">
+                        {{-- Tabla de Escritorio para historial de recepciones --}}
                         <div class="overflow-x-auto custom-scrollbar">
                             <table class="hidden md:table w-full text-sm text-left whitespace-nowrap min-w-[600px]">
                                 <thead class="text-xs tracking-wider text-slate-400 uppercase bg-slate-800/50 border-b border-slate-800">
@@ -144,7 +180,7 @@
                         </table>
                         </div>
                         
-                        <!-- Vista Móvil: Tarjetas -->
+                        {{-- Vista Móvil: Tarjetas individuales para pantallas pequeñas --}}
                         <div class="md:hidden flex flex-col divide-y divide-slate-800/50 pb-20">
                             @forelse($catalogo->recepcionDetalles->sortByDesc('created_at') as $detalle)
                                 <div class="p-4 flex flex-col gap-2 hover:bg-slate-800/30 transition-colors">
@@ -192,7 +228,12 @@
                 </div>
             </div>
 
-            <!-- Lotes de este Producto -->
+            {{-- =====================================================================
+                 3. ESTADO DE LOTES Y VENCIMIENTOS (MOTOR FEFO)
+                 =====================================================================
+                 Controlado por Alpine.js para gestionar el estado del modal de edición
+                 de fechas de caducidad.
+            --}}
             <div x-data="{ 
                 showModal: false, 
                 editLoteId: null, 
@@ -207,6 +248,7 @@
                     Estado de Lotes y Vencimientos
                 </h4>
 
+                {{-- Mensaje flash de estado tras actualizar fechas --}}
                 @if(session('status'))
                     <div class="p-4 mb-4 text-sm text-emerald-400 bg-emerald-500/10 rounded-xl border border-emerald-500/20">
                         {{ session('status') }}
@@ -214,6 +256,7 @@
                 @endif
 
                 <div class="bg-slate-900/50 backdrop-blur-xl border border-slate-800/60 rounded-2xl shadow-xl overflow-hidden">
+                    {{-- Tabla de Lotes Desktop --}}
                     <div class="overflow-x-auto custom-scrollbar">
                         <table class="hidden md:table w-full text-sm text-left whitespace-nowrap min-w-[600px]">
                             <thead class="text-xs tracking-wider text-slate-400 uppercase bg-slate-800/50 border-b border-slate-800">
@@ -228,12 +271,14 @@
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-slate-800/50">
+                            {{-- Se iteran únicamente lotes con saldo > 0 ordenados por fecha de vencimiento (FEFO) --}}
                             @forelse($catalogo->lotesStock->where('cantidad_disponible', '>', 0)->sortBy('fecha_vencimiento') as $lote)
                                 @php
                                     $venc = $lote->fecha_vencimiento;
                                     $hoy = now()->startOfDay();
                                     $estadoClass = '';
                                     $estadoText = '';
+                                    // Cálculo semafórico del estado FEFO
                                     if ($venc) {
                                         if ($venc->lt($hoy)) {
                                             $estadoClass = 'bg-rose-500/10 text-rose-400 border-rose-500/30';
@@ -275,6 +320,7 @@
                                         </span>
                                     </td>
                                     <td class="px-6 py-4 text-right">
+                                        {{-- Dispara el modal Alpine cargando los valores actuales del lote --}}
                                         <button type="button" 
                                                 @click="
                                                     editLoteId = {{ $lote->id }}; 
@@ -293,7 +339,7 @@
                         </table>
                     </div>
                     
-                    <!-- Vista Móvil: Tarjetas de Lotes -->
+                    {{-- Vista Móvil: Tarjetas de Lotes para pantallas táctiles --}}
                     <div class="md:hidden flex flex-col divide-y divide-slate-800/50 pb-24">
                         @forelse($catalogo->lotesStock->where('cantidad_disponible', '>', 0)->sortBy('fecha_vencimiento') as $lote)
                             @php
@@ -373,7 +419,9 @@
                     </div>
                 </div>
 
-                <!-- Modal Editar Fechas Lote -->
+                {{-- =====================================================================
+                     4. MODAL ALPINE.JS: EDICIÓN DE FECHAS DE LOTE
+                     ===================================================================== --}}
                 <div x-show="showModal" 
                      style="display: none;" 
                      class="fixed inset-0 z-50 overflow-y-auto" 
@@ -382,7 +430,7 @@
                      aria-modal="true">
                     
                     <div class="flex items-end justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
-                        <!-- Background overlay -->
+                        {{-- Backdrop con efecto difuminado --}}
                         <div x-show="showModal" 
                              x-transition:enter="ease-out duration-300" 
                              x-transition:enter-start="opacity-0" 
@@ -396,7 +444,7 @@
 
                         <span class="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
 
-                        <!-- Modal panel -->
+                        {{-- Panel del modal interactivo --}}
                         <div x-show="showModal" 
                              x-transition:enter="ease-out duration-300" 
                              x-transition:enter-start="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95" 
@@ -406,6 +454,7 @@
                              x-transition:leave-end="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95" 
                              class="inline-block px-4 pt-5 pb-4 text-left align-bottom transition-all transform bg-slate-800 rounded-2xl shadow-2xl border border-slate-700 sm:my-8 sm:align-middle sm:max-w-lg sm:w-full sm:p-6">
                             
+                            {{-- Formulario con envío PUT hacia la ruta de actualización de fechas --}}
                             <form :action="formAction" method="POST">
                                 @csrf
                                 @method('PUT')
@@ -426,6 +475,7 @@
                                     </div>
                                 </div>
                                 
+                                {{-- Inputs de fechas vinculados con x-model --}}
                                 <div class="mt-6 space-y-4 text-left">
                                     <div>
                                         <label for="fecha_elaboracion" class="block text-sm font-medium text-slate-300">Fecha de Elaboración</label>
@@ -437,6 +487,7 @@
                                     </div>
                                 </div>
 
+                                {{-- Botones de acción del modal --}}
                                 <div class="mt-8 sm:flex sm:flex-row-reverse gap-3">
                                     <button type="submit" class="inline-flex justify-center w-full px-4 py-2 text-base font-medium text-white bg-indigo-600 border border-transparent rounded-lg shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:w-auto sm:text-sm">
                                         Guardar Cambios
@@ -453,3 +504,4 @@
         </div>
     </div>
 </x-app-layout>
+

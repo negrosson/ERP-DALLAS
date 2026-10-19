@@ -1,5 +1,29 @@
-<!-- VISTA PC: TABLA TRADICIONAL -->
+{{--
+    ========================================================================================
+    VISTA PARCIAL: TABLA Y TARJETAS DEL CATÁLOGO MAESTRO (TABLE.BLADE.PHP)
+    RUTA INVOCADORA: Renderizada dinámicamente por CatalogoController@index vía AJAX o inicial
+    DESCRIPCIÓN:
+        Componente parcial modular de alta densidad para la visualización del catálogo de productos.
+        Implementa un diseño adaptativo dual:
+        1. VISTA ESCRITORIO (hidden md:table): Tabla estructurada con encabezados sticky, avatar
+           dinámico con gradiente por hash crc32, semáforo FEFO de vencimiento más cercano, motor
+           de cálculo (automático vs manual) y filas desplegables tipo acordeón para auditar los
+           lotes individuales existentes por bodega.
+        2. VISTA MÓVIL (md:hidden): Tarjetas táctiles (Cards) con resumen de precio, vencimiento
+           crítico, badges de formato/capacidad y cajón expandible con desglose de lotes por bodega.
+        3. CONTENEDOR OCULTO #pagination-links: Permite al script AJAX de catalogo/index.blade.php
+           capturar y reinyectar los enlaces de paginación de Laravel sin recargar la página.
+    ========================================================================================
+--}}
+
+{{-- 
+    ========================================================================================
+    1. VISTA DE ESCRITORIO: TABLA TABULAR TRADICIONAL
+    Visible únicamente en pantallas medianas y grandes (md:table).
+    ========================================================================================
+--}}
 <table class="hidden md:table w-full text-sm text-left text-slate-400 whitespace-nowrap">
+    {{-- Cabecera con posicionamiento sticky y desenfoque para mantener contexto al hacer scroll --}}
     <thead class="text-xs text-slate-400 uppercase bg-slate-950/80 sticky top-0 z-0 shadow-sm border-b border-slate-800 backdrop-blur-sm">
         <tr>
             <th scope="col" class="px-6 py-4">Producto</th>
@@ -12,12 +36,15 @@
             <th scope="col" class="px-6 py-4">Acciones</th>
         </tr>
     </thead>
+
+{{-- Iteración sobre la colección de productos paginados --}}
 @forelse ($productos as $producto)
     @php
-        // Generar avatar dinámico
+        // 1. Algoritmo de iniciales: Extrae las primeras 2 letras del nombre descartando símbolos
         $initials = strtoupper(substr(preg_replace('/[^a-zA-Z]/', '', $producto->nombre), 0, 2));
         if (strlen($initials) < 2) $initials = str_pad($initials, 2, 'X');
         
+        // 2. Paleta de gradientes armónicos para avatares de producto
         $colors = [
             'from-red-500 to-rose-600', 
             'from-blue-500 to-indigo-600', 
@@ -27,55 +54,79 @@
             'from-pink-500 to-rose-500',
             'from-cyan-500 to-blue-600'
         ];
+        // Asignación determinista de color según el hash crc32 del nombre
         $colorClass = $colors[crc32($producto->nombre) % count($colors)];
 
-        // Lotes activos ya eager-loaded (sin nueva query)
+        // 3. Colección de lotes activos cargados en memoria por eager-loading en el controlador
         $lotes = $producto->lotesStock;
-        $lotesPrimero = $lotes->first();
-        $lotesExtra = $lotes->skip(1)->values();
-        $hoy = now()->startOfDay();
+        $lotesPrimero = $lotes->first(); // Lote con vencimiento más próximo (regla FEFO)
+        $lotesExtra = $lotes->skip(1)->values(); // Lotes subsiguientes para indicador numérico (+N)
+        $hoy = now()->startOfDay(); // Fecha base de comparación a medianoche
     @endphp
+
+    {{-- Cada producto se encapsula en su propio tbody con estado Alpine para desplegar sus lotes --}}
     <tbody x-data="{ expanded: false }" class="border-b border-slate-800/50">
+        {{-- Fila principal: Clic alterna la apertura del detalle de lotes --}}
         <tr @click="expanded = !expanded" class="bg-slate-900/30 hover:bg-slate-800/80 transition-colors group cursor-pointer">
+            
+            {{-- Columna 1: Información del Producto (Avatar, Nombre, Formato, Capacidad, Descripción) --}}
             <td class="px-6 py-4">
                 <div class="flex items-center">
+                    {{-- Icono chevron que rota o alterna según el estado expandido --}}
                     <svg x-show="!expanded" class="w-4 h-4 mr-3 text-slate-500 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
                     <svg x-show="expanded" class="w-4 h-4 mr-3 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="display: none;"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                    
+                    {{-- Avatar circular dinámico generado con el color calculado --}}
                     <div class="flex-shrink-0 h-10 w-10 rounded-full bg-gradient-to-br {{ $colorClass }} flex items-center justify-center text-white font-bold text-sm border border-white/10 shadow-lg group-hover:scale-110 transition-transform">
                         {{ $initials }}
                     </div>
+                    
+                    {{-- Bloque de texto con detalles comerciales del producto --}}
                     <div class="ml-4">
                         <div class="text-sm font-bold text-white uppercase group-hover:text-indigo-400 transition-colors">{{ $producto->nombre }}</div>
                         <div class="flex items-center gap-2 mt-1">
+                            {{-- Badge de Formato físico (Lata, Botella, Pack, etc.) --}}
                             @if($producto->formato)
                                 <span class="bg-indigo-900/50 text-indigo-300 text-[10px] font-bold px-1.5 py-0.5 rounded border border-indigo-700/50 uppercase">{{ $producto->formato }}</span>
                             @endif
+                            {{-- Badge de Capacidad volumétrica (350cc, 500ml, 1.5L, etc.) --}}
                             @if($producto->capacidad)
                                 <span class="bg-indigo-900/50 text-indigo-300 text-[10px] font-bold px-1.5 py-0.5 rounded border border-indigo-700/50 uppercase">{{ $producto->capacidad }}</span>
                             @endif
                         </div>
+                        {{-- Descripción complementaria resumida si existe --}}
                         @if($producto->descripcion)
                             <div class="text-xs text-slate-500 mt-1 truncate max-w-xs">{{ $producto->descripcion }}</div>
                         @endif
                     </div>
                 </div>
             </td>
+
+            {{-- Columna 2: Código SKU Maestro en tipografía monoespaciada --}}
             <td class="px-6 py-4 font-medium text-slate-300 font-mono text-xs">
                 <span class="bg-slate-800 px-2 py-1 rounded border border-slate-700">{{ $producto->sku }}</span>
             </td>
+
+            {{-- Columna 3: Unidad de medida estándar (UN, CJ, KG) --}}
             <td class="px-6 py-4 font-medium text-slate-300">
                 {{ $producto->unidad_medida }}
             </td>
+
+            {{-- Columna 4: Precio de Venta Referencial formateado en moneda chilena (CLP) --}}
             <td class="px-6 py-4 font-bold text-emerald-400">
                 ${{ number_format($producto->precio_venta, 0, ',', '.') }}
             </td>
+
+            {{-- Columna 5: Motor de Vencimiento FEFO (Automático según vida útil o Manual) --}}
             <td class="px-6 py-4">
                 @if($producto->tieneAutocalculoVencimiento())
+                    {{-- Indicador de autocalculo con meses configurados --}}
                     <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
                         <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
                         {{ $producto->constante_vencimiento_meses }} meses
                     </span>
                 @else
+                    {{-- Indicador de ingreso manual en cada recepción --}}
                     <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium bg-slate-800 text-slate-400 border border-slate-700">
                         <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 11.5V14m0-2.5v-6a1.5 1.5 0 113 0m-3 6a1.5 1.5 0 00-3 0v2a7.5 7.5 0 0015 0v-5a1.5 1.5 0 00-3 0m-6-3V11m0-5.5v-1a1.5 1.5 0 013 0v1m0 0V11"></path></svg>
                         Manual
@@ -83,7 +134,7 @@
                 @endif
             </td>
 
-            {{-- ── Columna Próximo Vencimiento ─────────────────────────── --}}
+            {{-- Columna 6: Semáforo FEFO de Próximo Vencimiento --}}
             <td class="px-6 py-4">
                 @if($lotes->isEmpty())
                     <span class="text-xs text-slate-600 italic">Sin lotes registrados</span>
@@ -91,9 +142,12 @@
                     <span class="text-xs text-slate-400 font-medium px-2.5 py-1 bg-slate-800/80 rounded border border-slate-700">Agotado (0 UN)</span>
                 @else
                     @php
+                        // Análisis de criticidad de vencimiento según la fecha del lote más antiguo
                         $venc = $lotesPrimero->fecha_vencimiento;
                         $esVencido = $venc && $venc->lt($hoy);
                         $esCritico = $venc && !$esVencido && $venc->lte($hoy->copy()->addDays(30));
+                        
+                        // Asignación de estilos semafóricos: Rojo (vencido), Amarillo (crítico <=30d), Verde (óptimo)
                         $badgeClass = $esVencido
                             ? 'bg-rose-500/10 text-rose-400 border-rose-500/30'
                             : ($esCritico ? 'bg-amber-500/10 text-amber-400 border-amber-500/30' : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30');
@@ -103,6 +157,7 @@
                             : null;
                     @endphp
                     <div class="flex items-center gap-1.5 flex-wrap">
+                        {{-- Badge con icono de alerta o calendario y fecha formateada --}}
                         <span class="inline-flex items-center gap-1 text-xs font-medium px-2 py-1 rounded border {{ $badgeClass }}" title="{{ $humanLabel }}">
                             @if($esVencido)
                                 <svg class="w-3 h-3 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg>
@@ -112,6 +167,7 @@
                             {{ $label }}
                         </span>
 
+                        {{-- Indicador de cantidad de lotes adicionales en coexistencia --}}
                         @if($lotesExtra->count() > 0)
                             <span class="inline-flex items-center gap-0.5 text-[10px] font-bold px-1.5 py-0.5 rounded border border-slate-600 text-slate-400 bg-slate-800">
                                 +{{ $lotesExtra->count() }} lote(s)
@@ -121,6 +177,7 @@
                 @endif
             </td>
 
+            {{-- Columna 7: Estado de activación del producto --}}
             <td class="px-6 py-4">
                 @if($producto->activo)
                     <span class="bg-emerald-500/10 text-emerald-400 text-xs font-medium px-2.5 py-1 rounded border border-emerald-500/20 shadow-sm">Activo</span>
@@ -128,16 +185,22 @@
                     <span class="bg-rose-500/10 text-rose-400 text-xs font-medium px-2.5 py-1 rounded border border-rose-500/20 shadow-sm">Inactivo</span>
                 @endif
             </td>
+
+            {{-- Columna 8: Botones de Acción (Detalles, Ajuste Rápido, Editar, Eliminar) con stopPropagation --}}
             <td class="px-6 py-4 space-x-3">
+                {{-- 1. Ver ficha detallada del producto --}}
                 <a @click.stop href="{{ route('catalogo.show', $producto) }}" class="font-medium text-indigo-400 hover:text-indigo-300 transition-colors" title="Ver Detalles">
                     <svg class="w-5 h-5 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg>
                 </a>
+                {{-- 2. Disparar Modal de Ajuste Rápido de Stock vía evento CustomEvent global --}}
                 <button @click.stop onclick="event.stopPropagation(); window.dispatchEvent(new CustomEvent('open-ajuste-modal', { detail: { id: {{ $producto->id }}, nombre: '{{ addslashes($producto->nombre) }}' } }))" class="font-medium text-amber-400 hover:text-amber-300 transition-colors" title="Ajuste Rápido de Stock">
                     <svg class="w-5 h-5 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"></path></svg>
                 </button>
+                {{-- 3. Formulario de edición de atributos del producto --}}
                 <a @click.stop href="{{ route('catalogo.edit', $producto) }}" class="font-medium text-blue-400 hover:text-blue-300 transition-colors" title="Editar">
                     <svg class="w-5 h-5 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>
                 </a>
+                {{-- 4. Eliminación de producto con confirmación JavaScript y método DELETE spoofing --}}
                 <form @click.stop action="{{ route('catalogo.destroy', $producto) }}" method="POST" class="inline-block" onsubmit="return confirm('¿Está seguro de eliminar este producto del catálogo?');">
                     @csrf
                     @method('DELETE')
@@ -148,7 +211,12 @@
             </td>
         </tr>
 
-        <!-- Expanded details (Lots) -->
+        {{-- 
+            ================================================================================
+            FILA EXPANDIBLE TIPO ACORDEÓN (DETALLE DE LOTES DEL PRODUCTO)
+            Se muestra cuando expanded === true y lista los lotes individuales y bodegas
+            ================================================================================
+        --}}
         <tr x-show="expanded" style="display: none;" class="bg-slate-950">
             <td colspan="8" class="px-0 py-0">
                 <div class="border-t border-slate-800/50 bg-slate-950/50 p-6 shadow-inner">
@@ -157,14 +225,17 @@
                             <svg class="w-4 h-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 002-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path></svg>
                             Stock y Lotes para {{ $producto->nombre }}
                         </h4>
+                        {{-- Badge con la suma consolidada de stock en todas las bodegas --}}
                         <span class="bg-slate-800 text-slate-300 text-xs font-bold px-3 py-1 rounded border border-slate-700">Stock Total: {{ number_format($lotes->sum('cantidad_disponible'), 2, ',', '.') }} {{ $producto->unidad_medida }}</span>
                     </div>
                     
+                    {{-- Si no existen lotes físicos activos --}}
                     @if($lotes->isEmpty())
                         <div class="text-center py-6 text-slate-500 bg-slate-900/50 rounded-xl border border-slate-800/60">
                             Este producto no tiene stock en ninguna bodega.
                         </div>
                     @else
+                        {{-- Subtabla con cada lote específico, su bodega y fechas de elaboración/vencimiento --}}
                         <div class="overflow-hidden rounded-xl border border-slate-800/60 bg-slate-900 shadow-sm">
                             <table class="w-full text-xs text-left">
                                 <thead class="bg-slate-800/80 text-slate-400 uppercase border-b border-slate-700">
@@ -206,6 +277,7 @@
         </tr>
     </tbody>
 @empty
+    {{-- Estado cuando la consulta no devuelve ningún producto --}}
     <tbody>
         <tr>
             <td colspan="8" class="px-6 py-12 text-center text-slate-500 bg-slate-900/30">
@@ -218,7 +290,12 @@
 @endforelse
 </table>
 
-<!-- VISTA MÓVIL: TARJETAS (CARDS) -->
+{{-- 
+    ========================================================================================
+    2. VISTA MÓVIL: TARJETAS (CARDS) RESPONSIVAS
+    Visible únicamente en smartphones y tablets pequeñas (md:hidden).
+    ========================================================================================
+--}}
 <div class="md:hidden flex flex-col gap-4 p-4">
     @forelse ($productos as $producto)
         @php 
@@ -228,8 +305,12 @@
             $hoy = now()->startOfDay();
             $lotesPrimero = $lotes->first();
         @endphp
+        
+        {{-- Tarjeta de producto móvil con acordeón reactivo Alpine --}}
         <div x-data="{ expanded: false }" class="bg-slate-800/60 rounded-xl border border-slate-700/80 overflow-hidden shadow-sm">
             <div @click="expanded = !expanded" class="p-4 flex flex-col gap-3 cursor-pointer hover:bg-slate-800/80 transition-colors">
+                
+                {{-- Encabezado de la tarjeta móvil: SKU y Nombre con enlace --}}
                 <div class="flex justify-between items-start">
                     <div>
                         <span class="text-xs text-slate-400 font-mono block mb-1">SKU: {{ $producto->sku }}</span>
@@ -237,12 +318,14 @@
                             {{ $producto->nombre }}
                         </a>
                     </div>
+                    {{-- Icono chevron indicador de despliegue móvil --}}
                     <div class="text-slate-500 flex-shrink-0 mt-1">
                         <svg x-show="!expanded" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
                         <svg x-show="expanded" class="w-5 h-5 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="display: none;"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7"></path></svg>
                     </div>
                 </div>
 
+                {{-- Badges de Formato, Capacidad y Estado --}}
                 <div class="flex items-center gap-2 flex-wrap">
                     @if($producto->formato)
                         <span class="bg-indigo-900/50 text-indigo-300 text-[10px] font-bold px-2 py-0.5 rounded border border-indigo-700/50 uppercase">{{ $producto->formato }}</span>
@@ -257,6 +340,7 @@
                     @endif
                 </div>
 
+                {{-- Grid de 2 columnas: Precio de Referencia y Estado de Vencimiento FEFO --}}
                 <div class="grid grid-cols-2 gap-3 mt-1 border-t border-slate-700/50 pt-3">
                     <div>
                         <span class="text-xs text-slate-400 font-medium block">Precio Ref.</span>
@@ -281,22 +365,26 @@
                     </div>
                 </div>
 
+                {{-- Barra de Acciones Móviles: Botón Ajuste, Botón Editar y Píldora de Stock Total --}}
                 <div class="flex justify-between items-center mt-2 border-t border-slate-700/50 pt-3">
                     <div class="flex gap-2">
+                        {{-- Botón rápido para abrir modal de ajuste de stock --}}
                         <button @click.stop onclick="event.stopPropagation(); window.dispatchEvent(new CustomEvent('open-ajuste-modal', { detail: { id: {{ $producto->id }}, nombre: '{{ addslashes($producto->nombre) }}' } }))" class="inline-flex items-center justify-center bg-slate-700 hover:bg-slate-600 text-slate-200 border border-slate-600 rounded p-1.5 transition-colors">
                             <svg class="w-4 h-4 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"></path></svg>
                         </button>
+                        {{-- Botón rápido para editar producto --}}
                         <a @click.stop href="{{ route('catalogo.edit', $producto) }}" class="inline-flex items-center justify-center bg-slate-700 hover:bg-slate-600 text-slate-200 border border-slate-600 rounded p-1.5 transition-colors">
                             <svg class="w-4 h-4 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>
                         </a>
                     </div>
+                    {{-- Píldora de stock total disponible en inventario --}}
                     <span class="bg-indigo-900/80 text-indigo-300 border border-indigo-600 px-3 py-1 rounded-lg font-bold text-sm">
                         {{ number_format($stockTotal, 0) }} {{ $producto->unidad_medida }}
                     </span>
                 </div>
             </div>
 
-            <!-- Contenido Expandible (Lotes del Producto) -->
+            {{-- Cajón Desplegable Móvil: Desglose de lotes específicos por bodega --}}
             @if($hasLotes)
             <div x-show="expanded" style="display: none;" class="bg-slate-900 border-t border-slate-700/50 p-3">
                 <div class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2 px-1">Stock por Bodega</div>
@@ -326,6 +414,7 @@
             @endif
         </div>
     @empty
+        {{-- Mensaje de estado vacío en versión móvil --}}
         <div class="bg-slate-800/60 rounded-xl border border-slate-700 p-8 text-center">
             <svg class="mx-auto h-12 w-12 text-slate-600 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"></path></svg>
             <p class="text-base font-medium text-slate-400">No se encontraron productos</p>
@@ -333,8 +422,16 @@
     @endforelse
 </div>
 
+{{-- 
+    ========================================================================================
+    3. CONTENEDOR OCULTO DE ENLACES DE PAGINACIÓN (#pagination-links)
+    Este bloque HTML es leído por el script AJAX en catalogo/index.blade.php
+    para sincronizar la barra de paginación externa sin refrescar la página.
+    ========================================================================================
+--}}
 @if($productos instanceof \Illuminate\Pagination\LengthAwarePaginator || $productos instanceof \Illuminate\Pagination\Paginator)
     <div id="pagination-links" class="hidden">
         {{ $productos->links() }}
     </div>
 @endif
+

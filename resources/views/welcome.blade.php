@@ -1,3 +1,9 @@
+{{-- =========================================================================
+     VISTA DE BIENVENIDA / LANDING PAGE PREDETERMINADA
+     Sistema: ERP Dallas
+     Propósito: Portada inicial del framework Laravel con enlaces dinámicos hacia Login / Registro o redirección a Dashboard según el estado de autenticación.
+     Tecnologías: Laravel Blade, Tailwind CSS, Vite Bundle Resolver
+     ========================================================================= --}}
 <!DOCTYPE html>
 <html lang="{{ str_replace('_', '-', app()->getLocale()) }}">
     <head>

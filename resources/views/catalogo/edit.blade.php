@@ -1,28 +1,66 @@
+{{--
+    ========================================================================================
+    VISTA: EDICIÓN INTEGRAL DE PRODUCTO MAESTRO (EDIT.BLADE.PHP)
+    RUTA: GET /catalogo/{producto}/edit (catalogo.edit)
+    CONTROLADOR: App\Http\Controllers\CatalogoController@edit
+    DESCRIPCIÓN:
+        Consola completa de administración técnica y operativa para un SKU del Catálogo Maestro.
+        Esta pantalla agrupa dos macro-módulos fundamentales del ERP Dallas:
+        
+        1. FORMULARIO PRINCIPAL DE ATRIBUTOS MAESTROS:
+           - Edición de nombre, descripción, formato y capacidad (con selectores híbridos).
+           - SKU interno inmutable (readonly) para salvaguardar la integridad de relaciones y trazabilidad.
+           - Precios de compra y venta con previsualización monetaria.
+           - Configuración del Motor FEFO en 3 modos (Auto, Manual, Exento) con alerta inteligente
+             heurística para bebidas de línea 'Zero' (vida útil reglamentaria de 4 meses) y banner
+             en vivo del lote físico más crítico existente en bodega.
+           - Persistencia asíncrona (AJAX) con animaciones de Toast y prevención de envíos concurrentes.
+           
+        2. SUITE DE GESTIÓN FÍSICA DE LOTES Y STOCK:
+           - Tabla de auditoría en caliente con todos los lotes asociados al producto en cada bodega.
+           - Modal Alpine.js para edición física de lotes (fechas de elaboración/caducidad, recálculo por display/cajas).
+           - Modal Alpine.js para transferencia directa entre bodegas operativas.
+           - Modal Alpine.js para alta manual de nuevos lotes directos con conversión de displays a unidades.
+    ========================================================================================
+--}}
 <x-app-layout>
+    {{-- Slot de Cabecera Superior: Muestra el nombre comercial del producto en edición con acento de color --}}
     <x-slot name="header">
         <h2 class="text-xl font-semibold leading-tight text-slate-800">
             {{ __('Editar Producto:') }} <span class="text-indigo-600">{{ $catalogo->nombre }}</span>
         </h2>
     </x-slot>
 
+    {{-- Contenedor principal con espaciado vertical --}}
     <div class="py-12">
         <div class="mx-auto max-w-7xl sm:px-6 lg:px-8">
+            {{-- Tarjeta contenedora blanca con bordes definidos y sombra suave --}}
             <div class="overflow-hidden bg-white shadow-sm sm:rounded-xl border border-slate-200">
                 <div class="p-8 text-slate-900">
                     
+                    {{-- 
+                        ============================================================================
+                        FORMULARIO PRINCIPAL: ATRIBUTOS MAESTROS DEL PRODUCTO
+                        Interceptado mediante AJAX por el script al pie para una experiencia fluida.
+                        ============================================================================
+                    --}}
                     <form id="edit-catalog-form" method="POST" action="{{ route('catalogo.update', $catalogo) }}">
+                        {{-- Token de protección contra ataques CSRF --}}
                         @csrf
+                        {{-- Directiva de suplantación de método HTTP PUT para actualizaciones RESTful --}}
                         @method('PUT')
 
+                        {{-- Cuadrícula responsiva de 2 columnas en pantallas de escritorio --}}
                         <div class="grid grid-cols-1 gap-6 md:grid-cols-2">
-                            <!-- SKU -->
+                            
+                            {{-- 1. Código SKU Maestro: Bloqueado en solo lectura para preservar la trazabilidad histórica --}}
                             <div>
                                 <x-input-label for="sku" :value="__('SKU (Código Interno)')" class="text-slate-700 font-medium" />
                                 <x-text-input id="sku" class="block w-full mt-1 bg-slate-50 border-slate-300 text-slate-500 cursor-not-allowed shadow-sm" type="text" name="sku" :value="old('sku', $catalogo->sku)" required readonly maxlength="50" />
                                 <x-input-error :messages="$errors->get('sku')" class="mt-2" />
                             </div>
 
-                            <!-- Unidad de Medida -->
+                            {{-- 2. Unidad de Medida Principal (UN, CJ, KG, LT) --}}
                             <div>
                                 <x-input-label for="unidad_medida" :value="__('Unidad de Medida')" class="text-slate-700 font-medium" />
                                 <select id="unidad_medida" name="unidad_medida" class="block w-full mt-1 border-slate-300 rounded-lg shadow-sm focus:border-indigo-500 focus:ring-indigo-500 transition-colors" required>
@@ -34,14 +72,17 @@
                                 <x-input-error :messages="$errors->get('unidad_medida')" class="mt-2" />
                             </div>
 
-                            <!-- Nombre -->
+                            {{-- 3. Nombre Comercial del Producto (Ocupa ambas columnas) --}}
                             <div class="md:col-span-2">
                                 <x-input-label for="nombre" :value="__('Nombre del Producto')" class="text-slate-700 font-medium" />
                                 <x-text-input id="nombre" class="block w-full mt-1 border-slate-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-lg shadow-sm transition-colors" type="text" name="nombre" :value="old('nombre', $catalogo->nombre)" required maxlength="200" />
                                 <x-input-error :messages="$errors->get('nombre')" class="mt-2" />
                             </div>
 
-                            <!-- Formato -->
+                            {{-- 
+                                4. Selector Híbrido de Formato (Envase)
+                                Alpine.js evalúa si el valor guardado coincide con las opciones fijas o si debe conmutar a 'OTRO'.
+                            --}}
                             <div x-data="{ formatoSel: '{{ in_array(old('formato', $catalogo->formato), ['', 'BOTELLA', 'LATA', 'DISPLAY', 'CAJA', 'BARRIL', 'PACK', 'BIDON']) ? old('formato', $catalogo->formato) : (old('formato', $catalogo->formato) ? 'OTRO' : '') }}' }">
                                 <x-input-label for="formato_select" :value="__('Formato')" class="text-slate-700 font-medium" />
                                 <select id="formato_select" x-model="formatoSel" class="block w-full mt-1 border-slate-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-lg shadow-sm transition-colors" required>
@@ -55,12 +96,16 @@
                                     <option value="BIDON">BIDON</option>
                                     <option value="OTRO">OTRO (Especificar)</option>
                                 </select>
+                                {{-- Si se elige una opción predefinida, este hidden envía el dato --}}
                                 <input type="hidden" name="formato" :value="formatoSel" x-bind:disabled="formatoSel === 'OTRO' || formatoSel === ''">
+                                {{-- Si se elige 'OTRO', se muestra y habilita este campo de texto libre --}}
                                 <input x-show="formatoSel === 'OTRO'" type="text" name="formato" value="{{ old('formato', $catalogo->formato) }}" x-bind:disabled="formatoSel !== 'OTRO'" required maxlength="50" class="block w-full mt-2 border-slate-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-lg shadow-sm transition-colors" placeholder="Especifique formato..." style="display: none;">
                                 <x-input-error :messages="$errors->get('formato')" class="mt-2" />
                             </div>
 
-                            <!-- Capacidad -->
+                            {{-- 
+                                5. Selector Híbrido de Capacidad Volumétrica
+                            --}}
                             <div x-data="{ capSel: '{{ in_array(old('capacidad', $catalogo->capacidad), ['', '250ML', '330ML', '350ML', '355ML', '473ML', '500ML', '600ML', '1L', '1.25L', '1.5L', '2L', '2.5L', '3L']) ? old('capacidad', $catalogo->capacidad) : (old('capacidad', $catalogo->capacidad) ? 'OTRO' : '') }}' }">
                                 <x-input-label for="capacidad_select" :value="__('Capacidad')" class="text-slate-700 font-medium" />
                                 <select id="capacidad_select" x-model="capSel" class="block w-full mt-1 border-slate-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-lg shadow-sm transition-colors" required>
@@ -80,12 +125,14 @@
                                     <option value="3L">3 L</option>
                                     <option value="OTRO">OTRO (Especificar)</option>
                                 </select>
+                                {{-- Si es predefinido se despacha este input hidden --}}
                                 <input type="hidden" name="capacidad" :value="capSel" x-bind:disabled="capSel === 'OTRO' || capSel === ''">
+                                {{-- Si es 'OTRO' se despacha este campo textual --}}
                                 <input x-show="capSel === 'OTRO'" type="text" name="capacidad" value="{{ old('capacidad', $catalogo->capacidad) }}" x-bind:disabled="capSel !== 'OTRO'" required maxlength="50" class="block w-full mt-2 border-slate-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-lg shadow-sm transition-colors" placeholder="Especifique capacidad..." style="display: none;">
                                 <x-input-error :messages="$errors->get('capacidad')" class="mt-2" />
                             </div>
 
-                            <!-- Precios -->
+                            {{-- 6. Precio de Compra Referencial ($ CLP) con prefijo visual --}}
                             <div>
                                 <x-input-label for="precio_compra_ref" :value="__('Precio Compra Ref. ($)')" class="text-slate-700 font-medium" />
                                 <div class="relative mt-1">
@@ -97,6 +144,7 @@
                                 <x-input-error :messages="$errors->get('precio_compra_ref')" class="mt-2" />
                             </div>
 
+                            {{-- 7. Precio de Venta al Público ($ CLP) con prefijo visual --}}
                             <div>
                                 <x-input-label for="precio_venta" :value="__('Precio Venta ($)')" class="text-slate-700 font-medium" />
                                 <div class="relative mt-1">
@@ -108,13 +156,19 @@
                                 <x-input-error :messages="$errors->get('precio_venta')" class="mt-2" />
                             </div>
 
-                            <!-- Configuración del Motor FEFO (Lógica de Vencimientos) -->
+                            {{-- 
+                                ====================================================================================
+                                8. MOTOR DE CADUCIDAD Y REGLAS FEFO (ALPINE.JS)
+                                Permite alternar entre cálculo automático proyectado, ingreso manual o sin fecha.
+                                ====================================================================================
+                            --}}
                             <div class="md:col-span-2" 
                                  x-data="{ 
                                     fefoMode: '{{ old('fefo_mode', $catalogo->constante_vencimiento_meses > 0 ? 'auto' : 'manual') }}',
                                     mesesVidaUtil: {{ old('constante_vencimiento_meses', $catalogo->constante_vencimiento_meses ?? 'null') }},
                                     diasAviso: {{ old('dias_alerta_vencimiento', $catalogo->dias_alerta_vencimiento ?? '45') }},
                                     nombreProd: '{{ addslashes($catalogo->nombre) }}',
+                                    // Cálculo proyectado dinámico de vencimiento
                                     calcularProyeccion() {
                                         if (!this.mesesVidaUtil) return '';
                                         let d = new Date();
@@ -124,7 +178,7 @@
                                  }">
                                 
                                 <div class="border border-slate-200 rounded-xl p-6 bg-white shadow-sm relative overflow-hidden">
-                                    <!-- Header -->
+                                    {{-- Encabezado del motor FEFO --}}
                                     <div class="flex items-center gap-3 mb-6 border-b border-slate-100 pb-4">
                                         <div class="p-2 bg-indigo-50 text-indigo-600 rounded-lg">
                                             <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
@@ -135,6 +189,7 @@
                                         </div>
                                     </div>
 
+                                    {{-- Banner de Alerta en Vivo: Despliega el estado del lote más próximo a vencer existente en la base de datos --}}
                                     @if(isset($proximoLote))
                                         @php
                                             $diasRestantes = \Carbon\Carbon::now()->startOfDay()->diffInDays(\Carbon\Carbon::parse($proximoLote->fecha_vencimiento)->startOfDay(), false);
@@ -155,13 +210,14 @@
                                                     </p>
                                                 </div>
                                             </div>
+                                            {{-- Enlace rápido al módulo de lotes con filtro por SKU --}}
                                             <a href="{{ route('lotes.index', ['search' => $catalogo->sku]) }}" class="text-xs font-bold underline hover:opacity-80 px-3 py-1 bg-white/50 rounded-md">Ver lote</a>
                                         </div>
                                     @endif
 
-                                    <!-- Opciones de Modo (Radio Group Visual) -->
+                                    {{-- Selector Visual de Radio para los Modos FEFO --}}
                                     <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-                                        <!-- Opción A -->
+                                        {{-- Opción A: Autocalcular por vida útil fija --}}
                                         <label class="relative flex flex-col p-4 cursor-pointer border rounded-xl transition-all duration-200 focus-within:ring-2 focus-within:ring-indigo-500"
                                                :class="fefoMode === 'auto' ? 'border-indigo-600 bg-indigo-50/50 shadow-sm' : 'border-slate-200 hover:border-indigo-300 hover:bg-slate-50'">
                                             <input type="radio" name="fefo_mode" value="auto" x-model="fefoMode" class="sr-only">
@@ -176,7 +232,7 @@
                                             <p class="text-xs text-slate-500">Ideal para abarrotes. Se exige solo la fecha de elaboración al operario.</p>
                                         </label>
 
-                                        <!-- Opción B -->
+                                        {{-- Opción B: Ingreso Manual de fecha impresa --}}
                                         <label class="relative flex flex-col p-4 cursor-pointer border rounded-xl transition-all duration-200 focus-within:ring-2 focus-within:ring-indigo-500"
                                                :class="fefoMode === 'manual' ? 'border-amber-500 bg-amber-50/30 shadow-sm' : 'border-slate-200 hover:border-amber-300 hover:bg-slate-50'">
                                             <input type="radio" name="fefo_mode" value="manual" x-model="fefoMode" class="sr-only" @change="mesesVidaUtil = null">
@@ -191,7 +247,7 @@
                                             <p class="text-xs text-slate-500">Reglas de fábrica desconocidas. Exige fecha de vencimiento impresa.</p>
                                         </label>
 
-                                        <!-- Opción C -->
+                                        {{-- Opción C: Exento de Vencimiento --}}
                                         <label class="relative flex flex-col p-4 cursor-pointer border rounded-xl transition-all duration-200 focus-within:ring-2 focus-within:ring-indigo-500"
                                                :class="fefoMode === 'none' ? 'border-gray-500 bg-gray-50 shadow-sm' : 'border-slate-200 hover:border-gray-400 hover:bg-slate-50'">
                                             <input type="radio" name="fefo_mode" value="none" x-model="fefoMode" class="sr-only" @change="mesesVidaUtil = null; diasAviso = null">
@@ -207,9 +263,9 @@
                                         </label>
                                     </div>
 
-                                    <!-- Paneles Dinámicos -->
+                                    {{-- Paneles de Configuración Dinámicos según el modo activo --}}
                                     <div class="relative overflow-hidden">
-                                        <!-- Panel A: Autocalcular -->
+                                        {{-- Panel A: Inputs de meses de vida útil y alerta previa con detección inteligente Zero --}}
                                         <div x-show="fefoMode === 'auto'" 
                                              x-transition:enter="transition ease-out duration-300"
                                              x-transition:enter-start="opacity-0 -translate-y-2"
@@ -221,7 +277,7 @@
                                                     <x-input-label for="constante_vencimiento_meses" :value="__('Meses de Vida Útil')" class="text-slate-700 font-bold text-xs uppercase tracking-wider mb-2" />
                                                     <x-text-input id="constante_vencimiento_meses" name="constante_vencimiento_meses" type="number" step="1" min="1" max="120" x-model="mesesVidaUtil" x-bind:required="fefoMode === 'auto'" class="block w-full border-slate-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-lg shadow-sm text-slate-900 font-bold" />
                                                     
-                                                    <!-- Alerta Visual Inteligente para línea Zero -->
+                                                    {{-- Alerta Heurística Inteligente: Regla de negocio para productos de línea Zero (4 meses por formulación) --}}
                                                     <div x-show="nombreProd.toLowerCase().includes('zero') && mesesVidaUtil != 4 && mesesVidaUtil != null" style="display: none;" class="mt-3 p-3 bg-red-100 border-l-4 border-red-500 text-red-700 text-sm rounded shadow-sm">
                                                         <strong class="block font-bold mb-0.5">¡ATENCIÓN! Posible Error</strong>
                                                         Detectamos que es un producto línea <strong>Zero</strong>. Según catálogo oficial, su vida útil debe ser de <strong>4 meses</strong>.
@@ -238,6 +294,7 @@
                                                 </div>
                                             </div>
                                             
+                                            {{-- Proyector Visual de Vencimiento Estimado --}}
                                             <div class="flex-1 flex items-start mt-2">
                                                 <div x-show="mesesVidaUtil > 0" class="w-full bg-white border border-slate-200 rounded-lg p-5 shadow-sm flex items-start gap-4">
                                                     <div class="p-2 bg-slate-100 rounded-lg flex-shrink-0">
@@ -254,7 +311,7 @@
                                             </div>
                                         </div>
 
-                                        <!-- Panel B: Manual -->
+                                        {{-- Panel B: Advertencia de Ingreso Manual --}}
                                         <div x-show="fefoMode === 'manual'" 
                                              x-transition:enter="transition ease-out duration-300"
                                              x-transition:enter-start="opacity-0 -translate-y-2"
@@ -273,7 +330,7 @@
                                             </div>
                                         </div>
 
-                                        <!-- Panel C: Sin Vencimiento -->
+                                        {{-- Panel C: Exención de Controles FEFO --}}
                                         <div x-show="fefoMode === 'none'" 
                                              x-transition:enter="transition ease-out duration-300"
                                              x-transition:enter-start="opacity-0 -translate-y-2"
@@ -295,14 +352,14 @@
                                 </div>
                             </div>
 
-                            <!-- Descripción -->
+                            {{-- 9. Descripción y Notas del Producto --}}
                             <div class="md:col-span-2">
                                 <x-input-label for="descripcion" :value="__('Descripción del Producto')" class="text-slate-700 font-medium" />
                                 <textarea id="descripcion" name="descripcion" class="block w-full mt-1 border-slate-300 rounded-lg shadow-sm focus:border-indigo-500 focus:ring-indigo-500 transition-colors" rows="3">{{ old('descripcion', $catalogo->descripcion) }}</textarea>
                                 <x-input-error :messages="$errors->get('descripcion')" class="mt-2" />
                             </div>
 
-                            <!-- Activo -->
+                            {{-- 10. Checkbox de Activación Operativa del Producto --}}
                             <div class="block mt-2 md:col-span-2">
                                 <label for="activo" class="inline-flex items-center p-4 bg-slate-50 border border-slate-200 rounded-xl cursor-pointer hover:bg-slate-100 transition-colors w-full sm:w-auto">
                                     <input id="activo" type="checkbox" class="w-5 h-5 text-indigo-600 border-slate-300 rounded focus:ring-indigo-500" name="activo" value="1" {{ old('activo', $catalogo->activo) ? 'checked' : '' }}>
@@ -314,7 +371,9 @@
                             </div>
                         </div>
 
+                        {{-- Barra de Acciones del Formulario Principal: Guardar Cambios y Regresar --}}
                         <div class="flex items-center justify-end mt-8 pt-6 border-t border-slate-200">
+                            {{-- Spinner de carga para feedback visual durante la llamada AJAX --}}
                             <span id="save-loader" class="hidden mr-4 text-sm font-medium text-slate-500 items-center">
                                 <svg class="animate-spin -ml-1 mr-2 h-4 w-4 text-indigo-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
                                 Guardando...
@@ -328,43 +387,55 @@
                         </div>
                     </form>
 
-                    <!-- Nueva secciÃ³n: GestiÃ³n de Lotes -->
+                    {{-- 
+                        ============================================================================
+                        SECCIÓN: GESTIÓN DE LOTES Y STOCK FÍSICO
+                        Permite auditar y manipular directamente los lotes asociados a este SKU.
+                        ============================================================================
+                    --}}
                     <div class="mt-12 pt-8 border-t border-slate-200">
                         <div class="mb-6 flex justify-between items-center">
                             <div>
-                                <h3 class="text-xl font-bold text-slate-800">GestiÃ³n de Lotes y Stock</h3>
-                                <p class="text-sm text-slate-500 mt-1">Modifica fÃ­sicamente el stock o las fechas de los lotes de este producto.</p>
+                                <h3 class="text-xl font-bold text-slate-800">Gestión de Lotes y Stock</h3>
+                                <p class="text-sm text-slate-500 mt-1">Modifica físicamente el stock o las fechas de los lotes de este producto.</p>
                             </div>
+                            {{-- Botón para disparar modal de creación directa de lote físico --}}
                             <button x-data @click="$dispatch('open-create-lote-modal')" type="button" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold rounded-lg shadow-sm transition-colors">
                                 + Crear Nuevo Lote
                             </button>
                         </div>
 
+                        {{-- Tabla de Lotes Físicos Existentes en las Bodegas --}}
                         <div class="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
                             <table class="w-full text-sm text-left text-slate-600">
                                 <thead class="text-xs text-slate-500 uppercase bg-slate-50 border-b border-slate-200">
                                     <tr>
                                         <th class="px-6 py-3 font-semibold">Bodega</th>
                                         <th class="px-6 py-3 font-semibold">Cant. Disp.</th>
-                                        <th class="px-6 py-3 font-semibold">F. ElaboraciÃ³n</th>
+                                        <th class="px-6 py-3 font-semibold">F. Elaboración</th>
                                         <th class="px-6 py-3 font-semibold">F. Vencimiento</th>
                                         <th class="px-6 py-3 font-semibold text-right">Acciones</th>
                                     </tr>
                                 </thead>
                                 <tbody>
+                                    {{-- Iteración sobre los lotes con stock del producto --}}
                                     @forelse($catalogo->lotesStock as $lote)
                                         <tr class="border-b border-slate-100 hover:bg-slate-50/50 transition-colors">
+                                            {{-- Bodega física donde reside el lote --}}
                                             <td class="px-6 py-3">
                                                 <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-slate-100 text-slate-700 font-medium text-xs border border-slate-200 shadow-sm">
                                                     {{ $lote->bodega->nombre ?? 'N/A' }}
                                                 </span>
                                             </td>
+                                            {{-- Stock disponible en unidades --}}
                                             <td class="px-6 py-3 font-bold text-slate-800">
                                                 {{ number_format($lote->cantidad_disponible, 0) }}
                                             </td>
+                                            {{-- Fecha de elaboración registrada --}}
                                             <td class="px-6 py-3 text-slate-500">
                                                 {{ $lote->fecha_elaboracion ? \Carbon\Carbon::parse($lote->fecha_elaboracion)->format('d/m/Y') : 'N/A' }}
                                             </td>
+                                            {{-- Fecha de caducidad con formato semafórico --}}
                                             <td class="px-6 py-3">
                                                 @if($lote->fecha_vencimiento)
                                                     <span class="{{ \Carbon\Carbon::parse($lote->fecha_vencimiento)->isPast() ? 'text-red-500 font-bold' : 'text-emerald-600 font-medium' }}">
@@ -374,7 +445,9 @@
                                                     <span class="text-orange-400">Sin Fecha</span>
                                                 @endif
                                             </td>
+                                            {{-- Acciones sobre el lote: Editar Atributos o Transferir a otra Bodega --}}
                                             <td class="px-6 py-3 text-right">
+                                                {{-- Botón Editar: Abre modal transmitiendo los valores actuales en el evento --}}
                                                 <button x-data @click="$dispatch('open-edit-lote-modal', { 
                                                             id: {{ $lote->id }}, 
                                                             bodega: '{{ addslashes($lote->bodega->nombre) }}', 
@@ -387,6 +460,7 @@
                                                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
                                                     Editar
                                                 </button>
+                                                {{-- Botón Mover: Dispara modal de reubicación inter-bodegas --}}
                                                 <button x-data @click="$dispatch('open-transfer-lote-modal', { 
                                                             id: {{ $lote->id }}, 
                                                             bodegaId: {{ $lote->bodega_id }},
@@ -415,7 +489,12 @@
         </div>
     </div>
 
-    <!-- Modal Editar Lote -->
+    {{-- 
+        ====================================================================================
+        MODAL 1: EDITAR LOTE FÍSICO (ALPINE.JS)
+        Permite actualizar fechas de caducidad y ajustar inventario directamente o por cajas/displays.
+        ====================================================================================
+    --}}
     <div x-data="{ 
             open: false, 
             lote: {},
@@ -423,6 +502,7 @@
             displaySize: '6',
             otherSize: '',
             displayCount: 1,
+            // Getter computado para calcular las unidades totales multiplicando cajas por unidades
             get calculatedCantidad() {
                 if (!this.isDisplay) return this.lote.cantidad;
                 let size = this.displaySize === 'otro' ? parseInt(this.otherSize || 0) : parseInt(this.displaySize);
@@ -438,8 +518,10 @@
          class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm"
          style="display: none;">
         
+        {{-- Panel interior con cierre al hacer click fuera --}}
         <div @click.outside="open = false" class="bg-white border border-slate-200 p-6 rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden relative" x-transition:enter="transition ease-out duration-300" x-transition:enter-start="opacity-0 scale-95 translate-y-4" x-transition:enter-end="opacity-100 scale-100 translate-y-0">
             
+            {{-- Botón de cruz superior para cancelar --}}
             <button @click="open = false" class="absolute top-4 right-4 text-slate-400 hover:text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-full p-1.5 transition-colors">
                 <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
             </button>
@@ -447,12 +529,13 @@
             <h3 class="text-xl font-bold text-slate-800 mb-1">Editar Lote</h3>
             <p class="text-sm text-slate-500 mb-6">Bodega: <span class="font-semibold text-indigo-600" x-text="lote.bodega"></span></p>
             
+            {{-- Formulario con endpoint dinámico a /lotes/{id}/full --}}
             <form :action="'{{ url('lotes') }}/' + lote.id + '/full'" method="POST">
                 @csrf
                 @method('PUT')
                 
+                {{-- Campos de Fechas de Elaboración y Caducidad --}}
                 <div class="grid grid-cols-2 gap-4 mb-4">
-                    <!-- Fechas -->
                     <div>
                         <label class="block text-sm font-medium text-slate-700 mb-1">Fecha Elaboración</label>
                         <input type="date" name="fecha_elaboracion" x-model="lote.elaboracion" class="bg-slate-50 border border-slate-300 text-slate-700 text-sm rounded-lg focus:ring-indigo-500 focus:border-indigo-500 block w-full p-2.5">
@@ -463,12 +546,14 @@
                     </div>
                 </div>
                 
+                {{-- Bloque de Ajuste Físico: Conversor a Displays/Cajas --}}
                 <div class="bg-slate-50 p-4 rounded-xl border border-slate-200 mb-6">
                     <h4 class="text-sm font-bold text-slate-700 mb-3 flex items-center gap-2">
                         <svg class="w-4 h-4 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10" /></svg>
                         Ajuste de Inventario Físico
                     </h4>
                     
+                    {{-- Toggle Switch para activar modo display --}}
                     <div class="mb-4 flex items-center gap-2">
                         <label class="relative inline-flex items-center cursor-pointer">
                             <input type="checkbox" x-model="isDisplay" class="sr-only peer">
@@ -477,6 +562,7 @@
                         </label>
                     </div>
 
+                    {{-- Controles de multiplicador cuando isDisplay === true --}}
                     <div x-show="isDisplay" class="grid grid-cols-2 gap-4 mb-4 p-3 bg-indigo-50 rounded-lg border border-indigo-100" style="display: none;">
                         <div>
                             <label class="block text-xs font-medium text-slate-600 mb-1">Unidades por Display</label>
@@ -495,6 +581,7 @@
                         </div>
                     </div>
 
+                    {{-- Cantidad Final Calculada y Motivo de Auditoría Obligatorio --}}
                     <div class="grid grid-cols-2 gap-4">
                         <div>
                             <label class="block text-xs font-medium text-slate-500 mb-1">Nueva Cantidad Real (Unidades)</label>
@@ -508,6 +595,7 @@
                     </div>
                 </div>
 
+                {{-- Botones de Cancelar y Guardar --}}
                 <div class="flex justify-end gap-3">
                     <button type="button" @click="open = false" class="text-slate-600 bg-white hover:bg-slate-50 border border-slate-300 focus:ring-4 focus:outline-none focus:ring-slate-100 font-medium rounded-lg text-sm px-5 py-2.5 transition-colors">Cancelar</button>
                     <button type="submit" class="text-white bg-indigo-600 hover:bg-indigo-700 focus:ring-4 focus:outline-none focus:ring-indigo-200 font-medium rounded-lg text-sm px-5 py-2.5 transition-colors shadow-sm">Guardar Cambios</button>
@@ -516,7 +604,12 @@
         </div>
     </div>
 
-    <!-- Modal Transferir Lote -->
+    {{-- 
+        ====================================================================================
+        MODAL 2: TRANSFERIR LOTE ENTRE BODEGAS (ALPINE.JS)
+        Permite reubicar el lote completo hacia otra bodega física activa con trazabilidad.
+        ====================================================================================
+    --}}
     <div x-data="{ open: false, lote: {} }" 
          @open-transfer-lote-modal.window="open = true; lote = $event.detail;"
          x-show="open" 
@@ -532,10 +625,12 @@
             <h3 class="text-xl font-bold text-slate-800 mb-1">Transferir Lote</h3>
             <p class="text-sm text-slate-500 mb-6">Bodega Actual: <span class="font-semibold text-amber-600" x-text="lote.bodegaNombre"></span></p>
             
+            {{-- Formulario con endpoint dinámico a /lotes/{id}/transferir --}}
             <form :action="'{{ url('lotes') }}/' + lote.id + '/transferir'" method="POST">
                 @csrf
                 @method('PUT')
                 
+                {{-- Selector de Bodega de Destino --}}
                 <div class="mb-4">
                     <label class="block text-sm font-medium text-slate-700 mb-1">Bodega Destino</label>
                     <select name="bodega_destino_id" required class="bg-slate-50 border border-slate-300 text-slate-700 text-sm rounded-lg focus:ring-amber-500 focus:border-amber-500 block w-full p-2.5">
@@ -546,6 +641,7 @@
                     </select>
                 </div>
 
+                {{-- Justificación obligatoria para la auditoría de inventario --}}
                 <div class="mb-6">
                     <label class="block text-sm font-medium text-slate-700 mb-1">Motivo / Observaciones</label>
                     <input type="text" name="motivo" required placeholder="Ej. Reordenamiento de inventario" class="bg-white border border-slate-300 text-slate-700 text-sm rounded-lg focus:ring-amber-500 focus:border-amber-500 block w-full p-2.5">
@@ -559,7 +655,12 @@
         </div>
     </div>
 
-    <!-- Modal Crear Lote -->
+    {{-- 
+        ====================================================================================
+        MODAL 3: CREAR NUEVO LOTE MANUAL (ALPINE.JS)
+        Permite inyectar inventario inicial directamente al producto sin pasar por orden de compra.
+        ====================================================================================
+    --}}
     <div x-data="{ 
             open: false, 
             isDisplay: false,
@@ -595,6 +696,7 @@
             <form action="{{ route('catalogo.lotes.store', $catalogo) }}" method="POST">
                 @csrf
                 
+                {{-- Selección de Bodega Destino --}}
                 <div class="mb-4">
                     <label class="block text-sm font-medium text-slate-700 mb-1">Bodega Destino <span class="text-red-500">*</span></label>
                     <select name="bodega_id" required class="bg-slate-50 border border-slate-300 text-slate-700 text-sm rounded-lg focus:ring-emerald-500 focus:border-emerald-500 block w-full p-2.5">
@@ -605,8 +707,8 @@
                     </select>
                 </div>
 
+                {{-- Fechas de Elaboración y Caducidad --}}
                 <div class="grid grid-cols-2 gap-4 mb-4">
-                    <!-- Fechas -->
                     <div>
                         <label class="block text-sm font-medium text-slate-700 mb-1">Fecha Elaboración</label>
                         <input type="date" name="fecha_elaboracion" class="bg-slate-50 border border-slate-300 text-slate-700 text-sm rounded-lg focus:ring-emerald-500 focus:border-emerald-500 block w-full p-2.5">
@@ -617,8 +719,8 @@
                     </div>
                 </div>
                 
+                {{-- Selector y Multiplicador por Display o Caja --}}
                 <div class="bg-slate-50 p-4 rounded-xl border border-slate-200 mb-6">
-                    
                     <div class="mb-4 flex items-center gap-2">
                         <label class="relative inline-flex items-center cursor-pointer">
                             <input type="hidden" name="es_display" value="0">
@@ -668,14 +770,26 @@
         </div>
     </div>
 
-    <!-- Contenedor del Toast (Fijo Arriba Derecha) -->
+    {{-- Contenedor fijo para notificaciones flotantes (Toast) --}}
     <div id="toast-container" class="fixed top-5 right-5 z-50 flex flex-col gap-3"></div>
 
+    {{-- 
+        ====================================================================================
+        SCRIPTS DE PERSISTENCIA ASÍNCRONA Y NOTIFICACIONES
+        ====================================================================================
+    --}}
     <script>
         document.addEventListener('DOMContentLoaded', function() {
+            // Referencias seguras al formulario y elementos de control
+            const form = document.getElementById('edit-catalog-form');
+            const submitBtn = document.getElementById('submit-btn');
+            const saveLoader = document.getElementById('save-loader');
 
-
-            // 2. Sistema de Toasts
+            /**
+             * Muestra una notificación flotante (Toast) animada en la esquina superior derecha
+             * @param {string} message - Texto informativo del mensaje
+             * @param {string} type - Tipo visual ('success' | 'error')
+             */
             function showToast(message, type = 'success') {
                 const toast = document.createElement('div');
                 const isSuccess = type === 'success';
@@ -707,13 +821,13 @@
                 
                 document.getElementById('toast-container').appendChild(toast);
                 
-                // Animar entrada
+                // Animación de entrada suave
                 setTimeout(() => {
                     toast.classList.remove('translate-x-full', 'opacity-0');
                     toast.classList.add('translate-x-0', 'opacity-100');
                 }, 10);
                 
-                // Remover después de 4 segundos
+                // Remoción automática transcurridos 4 segundos
                 setTimeout(() => {
                     toast.classList.remove('translate-x-0', 'opacity-100');
                     toast.classList.add('translate-x-full', 'opacity-0');
@@ -721,52 +835,60 @@
                 }, 4000);
             }
 
-            // 3. Persistencia Asíncrona (AJAX Form Submit)
-            form.addEventListener('submit', function(e) {
-                e.preventDefault();
-                
-                submitBtn.disabled = true;
-                submitBtn.classList.add('opacity-50');
-                saveLoader.classList.remove('hidden');
-                
-                // Si el checkbox de activo no está marcado, FormData no lo incluye. 
-                // Lo forzamos inyectando 0 para que Laravel lo valide bien si es necesario.
-                const formData = new FormData(form);
-                if(!formData.has('activo')) formData.append('activo', '0');
+            // Intercepta el envío del formulario para persistir vía AJAX
+            if(form) {
+                form.addEventListener('submit', function(e) {
+                    e.preventDefault();
+                    
+                    if(submitBtn) {
+                        submitBtn.disabled = true;
+                        submitBtn.classList.add('opacity-50');
+                    }
+                    if(saveLoader) {
+                        saveLoader.classList.remove('hidden');
+                    }
+                    
+                    // Asegura el envío del valor '0' si el checkbox 'activo' está desmarcado
+                    const formData = new FormData(form);
+                    if(!formData.has('activo')) formData.append('activo', '0');
 
-                fetch(form.action, {
-                    method: 'POST',
-                    body: formData,
-                    headers: {
-                        'X-Requested-With': 'XMLHttpRequest',
-                        'Accept': 'application/json'
-                    }
-                })
-                .then(response => {
-                    if (!response.ok && response.status === 422) {
-                        return response.json().then(err => { throw err; });
-                    }
-                    return response.json(); // Laravel Controller normally redirects, we need to handle JSON if we modify Controller, OR we just accept the redirect via Fetch.
-                    // Wait, standard Laravel Controller redirects on save. If it redirects, fetch follows it or returns opaque. 
-                    // Let's modify the CatalogoController temporarily to return JSON for AJAX, or handle it via a generic response check.
-                })
-                .then(data => {
-                    // Redirigir rápidamente a la vista principal
-                    window.location.href = "{{ route('catalogo.index') }}";
-                })
-                .catch(error => {
-                    if(error.errors) {
-                        const firstError = Object.values(error.errors)[0][0];
-                        showToast(firstError, 'error');
-                        // Solo rehabilitamos el botón si hubo un error de validación
-                        submitBtn.disabled = false;
-                        submitBtn.classList.remove('opacity-50');
-                        saveLoader.classList.add('hidden');
-                    } else {
+                    fetch(form.action, {
+                        method: 'POST',
+                        body: formData,
+                        headers: {
+                            'X-Requested-With': 'XMLHttpRequest',
+                            'Accept': 'application/json'
+                        }
+                    })
+                    .then(response => {
+                        if (!response.ok && response.status === 422) {
+                            return response.json().then(err => { throw err; });
+                        }
+                        return response.json();
+                    })
+                    .then(data => {
+                        // Redirección exitosa a la lista principal
                         window.location.href = "{{ route('catalogo.index') }}";
-                    }
+                    })
+                    .catch(error => {
+                        if(error && error.errors) {
+                            const firstError = Object.values(error.errors)[0][0];
+                            showToast(firstError, 'error');
+                            // Rehabilitar botón en caso de error de validación
+                            if(submitBtn) {
+                                submitBtn.disabled = false;
+                                submitBtn.classList.remove('opacity-50');
+                            }
+                            if(saveLoader) {
+                                saveLoader.classList.add('hidden');
+                            }
+                        } else {
+                            window.location.href = "{{ route('catalogo.index') }}";
+                        }
+                    });
                 });
-            });
+            }
         });
     </script>
 </x-app-layout>
+

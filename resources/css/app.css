@@ -1,41 +1,56 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+/* ==============================================================================
+   HOJA DE ESTILOS PRINCIPAL DEL SISTEMA (Tailwind CSS Pipeline)
+   ==============================================================================
+   Define las capas base de Tailwind, estilos personalizados de scrollbar para
+   la estética ejecutiva oscura y ajustes de legibilidad de alto contraste.
+   ============================================================================== */
 
+/* 1. Directivas de inclusión de capas de Tailwind CSS */
+@tailwind base;        /* Resets de CSS, estilos predeterminados para elementos HTML */
+@tailwind components;  /* Componentes reutilizables generados por Tailwind */
+@tailwind utilities;   /* Clases de utilidad funcionales (margen, color, flex, etc.) */
+
+/* 2. Capa Base Personalizada: Sobrescritura de estilos globales del documento */
 @layer base {
-  /* Custom Scrollbar Styles */
+  
+  /* --- Estilización personalizada de barra de desplazamiento (Motores WebKit: Chrome, Safari, Edge) --- */
   ::-webkit-scrollbar {
-    width: 6px;
-    height: 6px;
+    width: 6px;   /* Ancho sutil para scroll vertical */
+    height: 6px;  /* Altura sutil para scroll horizontal en tablas y planogramas */
   }
   
+  /* Pista del scrollbar (fondo transparente para integrarse con el fondo slate-950) */
   ::-webkit-scrollbar-track {
     background: transparent;
   }
   
+  /* Pulgar de arrastre (Thumb) con color slate translúcido y bordes redondeados */
   ::-webkit-scrollbar-thumb {
-    background-color: rgba(71, 85, 105, 0.4); /* slate-600 with opacity */
-    border-radius: 20px;
+    background-color: rgba(71, 85, 105, 0.4); /* Color slate-600 al 40% de opacidad */
+    border-radius: 20px;                      /* Esquinas completamente redondeadas */
   }
   
+  /* Efecto Hover interactivo: Resalta el scrollbar con un tono índigo suave al pasar el cursor */
   ::-webkit-scrollbar-thumb:hover {
-    background-color: rgba(99, 102, 241, 0.5); /* indigo-500 with opacity */
+    background-color: rgba(99, 102, 241, 0.5); /* Color indigo-500 al 50% de opacidad */
   }
 
-  /* Firefox scrollbar support */
+  /* --- Soporte de scrollbar para el motor Gecko (Mozilla Firefox) --- */
   * {
-    scrollbar-width: thin;
-    scrollbar-color: rgba(71, 85, 105, 0.4) transparent;
+    scrollbar-width: thin;                                 /* Barra de ancho delgado */
+    scrollbar-color: rgba(71, 85, 105, 0.4) transparent;  /* Color del pulgar y fondo transparente */
   }
 
-  /* Make texts whiter globally */
+  /* --- Calibración de contraste y legibilidad para el tema oscuro corporativo --- */
+  /* Ajusta los grises de Tailwind a tonos más claros para evitar fatiga visual en pantallas oscuras */
   .text-slate-400 {
-    color: #e2e8f0 !important; /* slate-200 */
+    color: #e2e8f0 !important; /* Mapea a slate-200 para mejorar la nitidez de etiquetas secundarias */
   }
   .text-slate-500 {
-    color: #cbd5e1 !important; /* slate-300 */
+    color: #cbd5e1 !important; /* Mapea a slate-300 para asegurar lectura de descripciones y subtítulos */
   }
   .text-slate-300 {
-    color: #f8fafc !important; /* slate-50 */
+    color: #f8fafc !important; /* Mapea a slate-50 para títulos y datos de máximo contraste */
   }
 }
+

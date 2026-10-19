@@ -1,4 +1,25 @@
-<!-- VISTA PC: TABLA TRADICIONAL -->
+{{-- 
+========================================================================================
+VISTA PARCIAL: TABLA GLOBAL DE LOTES Y RADAR FEFO
+RUTA INCLUIDA EN: resources/views/lotes/index.blade.php
+CONTROLADOR: LoteStockController@index (Invocada también en peticiones AJAX asíncronas)
+PROPÓSITO:
+- Renderizar la vista relacional o modular de productos con existencias por lotes a nivel multi-bodega.
+- Para cada producto:
+  * Resumen de SKU, denominación comercial, atributos de formato y capacidad de envasado.
+  * Existencia consolidada total en unidades o distintivo de 'Agotado'.
+  * Acordeón interactivo Alpine.js (`x-data="{ expanded: false }"`):
+    - Al expandir, muestra cada lote físico con su número de serie (#ID), procedencia (recepción o ajuste),
+      fecha de elaboración, fecha de caducidad con indicación cromática (rojo = vencido, esmeralda = vigente),
+      y volumen de unidades.
+    - Acciones sobre cada lote: Ajustar stock en caliente, Editar fechas de vida útil o Mover entre bodegas.
+- Modos responsivos: Tabla anidada para Desktop y tarjetas táctiles para Mobile.
+========================================================================================
+--}}
+
+{{-- =========================================================================
+     VISTA PC: TABLA TRADICIONAL ANIDADA CON ACORDEÓN (Visible en md y superior)
+     ========================================================================= --}}
 <table class="hidden md:table w-full text-sm text-left text-slate-400 whitespace-nowrap">
     <thead class="text-xs text-slate-300 uppercase bg-slate-800/80 sticky top-0 z-0 shadow-sm border-b border-slate-700 backdrop-blur-sm">
         <tr>
@@ -7,6 +28,7 @@
             <th scope="col" class="px-6 py-3 text-right">Cantidad Disponible</th>
         </tr>
     </thead>
+    {{-- Itera sobre la colección de productos agrupados --}}
     @forelse ($productos as $producto)
         @php 
             $lotes = $producto->lotesStock;
@@ -14,13 +36,17 @@
             $productoJson = json_encode($producto);
             $lotesJson = json_encode($lotes->values());
         @endphp
+        {{-- Cada producto mantiene su propio estado de apertura de acordeón con Alpine.js --}}
         <tbody x-data="{ expanded: false }" class="border-b border-slate-800/50">
+            {{-- Fila principal: Al hacer click conmuta el estado expanded --}}
             <tr @click="expanded = !expanded" class="bg-slate-900/30 hover:bg-slate-800/80 cursor-pointer transition-colors">
+                {{-- SKU con indicador de flecha colapsable --}}
                 <td class="px-6 py-4 font-medium text-slate-200 font-mono flex items-center">
                     <svg x-show="!expanded" class="w-4 h-4 mr-2 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
                     <svg x-show="expanded" class="w-4 h-4 mr-2 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="display: none;"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
                     {{ $producto->sku }}
                 </td>
+                {{-- Nombre y etiquetas de presentación comercial --}}
                 <td class="px-6 py-4">
                     <span class="font-bold text-white block">{{ $producto->nombre }}</span>
                     <div class="flex items-center gap-2 mt-1">
@@ -32,6 +58,7 @@
                         @endif
                     </div>
                 </td>
+                {{-- Cantidad total disponible en stock o distintivo de agotado --}}
                 <td class="px-6 py-4 text-right">
                     @if($stockTotal > 0)
                         <span class="bg-indigo-900/50 text-indigo-300 border border-indigo-700 px-3 py-1 rounded-lg font-bold text-base">{{ number_format($stockTotal, 0) }} UN</span>
@@ -43,6 +70,8 @@
                     @endif
                 </td>
             </tr>
+
+            {{-- Fila secundaria de lotes físicos: Desplegada si expanded === true --}}
             <tr x-show="expanded" style="display: none;" class="bg-slate-950/50">
                 <td colspan="3" class="px-10 py-4">
                     <div class="bg-slate-900 rounded-lg border border-slate-700/50 overflow-hidden shadow-inner">
@@ -58,9 +87,12 @@
                                 </tr>
                             </thead>
                             <tbody>
+                                {{-- Itera sobre los lotes físicos activos --}}
                                 @forelse($lotes as $lote)
                                 <tr class="border-b border-slate-800/30 last:border-0 hover:bg-slate-800/50 transition-colors">
+                                    {{-- Folio del lote --}}
                                     <td class="px-4 py-3 font-mono">#{{ $lote->id }}</td>
+                                    {{-- Enlace a la recepción origen o indicación de ajuste manual --}}
                                     <td class="px-4 py-3">
                                         @if($lote->recepcionDetalle && $lote->recepcionDetalle->recepcion)
                                             <a href="{{ route('recepciones.show', $lote->recepcionDetalle->recepcion) }}" class="text-indigo-400 hover:underline">Recepción #{{ $lote->recepcionDetalle->recepcion->id }}</a>
@@ -68,13 +100,18 @@
                                             <span class="text-slate-500 italic">Ajuste manual</span>
                                         @endif
                                     </td>
+                                    {{-- Fecha de elaboración del lote --}}
                                     <td class="px-4 py-3">{{ $lote->fecha_elaboracion ? $lote->fecha_elaboracion->format('d/m/Y') : 'N/A' }}</td>
+                                    {{-- Fecha de caducidad con formato cromático condicional --}}
                                     <td class="px-4 py-3 font-medium {{ $lote->fecha_vencimiento && $lote->fecha_vencimiento->isPast() ? 'text-red-400' : 'text-emerald-400' }}">
                                         {{ $lote->fecha_vencimiento ? $lote->fecha_vencimiento->format('d/m/Y') : 'S/F' }}
                                     </td>
+                                    {{-- Cantidad física actual disponible en este lote --}}
                                     <td class="px-4 py-3 text-right font-bold text-slate-200">{{ number_format($lote->cantidad_disponible, 0) }} UN</td>
+                                    {{-- Acciones contextuales sobre el lote individual --}}
                                     <td class="px-4 py-3 text-center">
                                         <div class="flex items-center justify-center gap-1">
+                                            {{-- Botón para abrir el modal de ajuste masivo --}}
                                             <button type="button"
                                                 class="btn-ajuste-masivo inline-flex justify-center items-center text-xs px-2 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded border border-slate-600 transition-colors"
                                                 data-producto="{{ $productoJson }}"
@@ -84,6 +121,7 @@
                                                 <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>
                                                 Ajustar
                                             </button>
+                                            {{-- Botón para abrir el modal de edición de fechas --}}
                                             <button type="button"
                                                 class="inline-flex justify-center items-center text-xs px-2 py-1 bg-indigo-900/40 hover:bg-indigo-900/60 text-indigo-300 rounded border border-indigo-700/50 transition-colors"
                                                 onclick="window.dispatchEvent(new CustomEvent('open-fechas-modal', { detail: { id: '{{ $lote->id }}', elab: '{{ $lote->fecha_elaboracion ? $lote->fecha_elaboracion->format('d/m/Y') : 'N/A' }}', venc: '{{ $lote->fecha_vencimiento ? $lote->fecha_vencimiento->format('d/m/Y') : 'S/F' }}', url: '{{ route('lotes.fechas.update', $lote->id) }}', vida_util: '{{ $producto->constante_vencimiento_meses ?? '' }}' } }))"
@@ -91,6 +129,7 @@
                                                 <svg class="w-3 h-3 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
                                                 Fechas
                                             </button>
+                                            {{-- Botón para abrir el modal de traslado a otra bodega --}}
                                             <button type="button"
                                                 class="inline-flex justify-center items-center text-xs px-2 py-1 bg-amber-900/40 hover:bg-amber-900/60 text-amber-300 rounded border border-amber-700/50 transition-colors"
                                                 onclick="window.dispatchEvent(new CustomEvent('open-transfer-lote-modal', { detail: { id: {{ $lote->id }}, bodegaNombre: '{{ addslashes(optional($lote->bodega)->nombre ?? '') }}' } }))">
@@ -101,6 +140,7 @@
                                     </td>
                                 </tr>
                                 @empty
+                                {{-- Fila vacía para productos sin lotes registrados --}}
                                 <tr class="border-b border-slate-800/50 hover:bg-slate-900/50 transition-colors">
                                     <td colspan="5" class="px-4 py-4 text-center text-slate-500 font-medium italic">
                                         Sin lotes registrados
@@ -140,6 +180,7 @@
                 </td>
             </tr>
         </tbody>
+    {{-- Estado vacío si ningún producto coincide con los filtros aplicados --}}
     @empty
         <tbody>
             <tr>
@@ -153,7 +194,9 @@
     @endforelse
 </table>
 
-<!-- VISTA MÓVIL: TARJETAS (CARDS) -->
+{{-- =========================================================================
+     VISTA MÓVIL: TARJETAS (CARDS) DESPLEGABLES (Visible en smartphones < md)
+     ========================================================================= --}}
 <div class="md:hidden flex flex-col gap-4 p-4 pb-24">
     @forelse ($productos as $producto)
         @php 
@@ -163,6 +206,7 @@
             $productoJson = json_encode($producto);
             $lotesJson = json_encode($lotes->values());
         @endphp
+        {{-- Tarjeta móvil con estado reactivo independiente Alpine.js --}}
         <div x-data="{ expanded: false }" class="bg-slate-800/60 rounded-xl border border-slate-700/80 overflow-hidden shadow-sm">
             <div @click="expanded = {{ $hasLotes ? '!expanded' : 'false' }}" class="p-4 flex flex-col gap-3 {{ $hasLotes ? 'cursor-pointer hover:bg-slate-800/80' : '' }} transition-colors">
                 <div class="flex justify-between items-start">
@@ -177,6 +221,7 @@
                         </div>
                     @endif
                 </div>
+                {{-- Etiquetas de presentación comercial en tarjeta móvil --}}
                 <div class="flex items-center gap-2 flex-wrap">
                     @if($producto->formato)
                         <span class="bg-indigo-900/50 text-indigo-300 text-[10px] font-bold px-2 py-0.5 rounded border border-indigo-700/50 uppercase">{{ $producto->formato }}</span>
@@ -185,6 +230,7 @@
                         <span class="bg-indigo-900/50 text-indigo-300 text-[10px] font-bold px-2 py-0.5 rounded border border-indigo-700/50 uppercase">{{ $producto->capacidad }}</span>
                     @endif
                 </div>
+                {{-- Resumen de stock y disparador de ajuste --}}
                 <div class="mt-1 flex justify-between items-center border-t border-slate-700/50 pt-3">
                     <div class="flex flex-col gap-1">
                         <span class="text-xs text-slate-400 font-medium">Stock Total:</span>
@@ -207,6 +253,8 @@
                     @endif
                 </div>
             </div>
+
+            {{-- Desglose interno de lotes físicos para móviles --}}
             <div x-show="expanded" style="display: none;" class="bg-slate-900 border-t border-slate-700/50 p-3">
                 <div class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2 px-1">Lotes Disponibles</div>
                 <div class="flex flex-col gap-2">
@@ -232,6 +280,7 @@
                                 @endif
                             </div>
                         </div>
+                        {{-- Botonera de acciones vertical para facilitar el uso con una mano --}}
                         <div class="flex flex-col gap-2 mt-3">
                             <div class="text-[10px] font-bold text-slate-500 uppercase tracking-widest text-center mb-1">Acciones</div>
                             <button type="button"
@@ -294,6 +343,7 @@
             </div>
         </div>
     @empty
+        {{-- Tarjeta vacía móvil --}}
         <div class="bg-slate-800/60 rounded-xl border border-slate-700 p-8 text-center">
             <svg class="mx-auto h-12 w-12 text-slate-600 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"></path></svg>
             <p class="text-base font-medium text-slate-400">No se encontraron productos</p>
@@ -301,9 +351,9 @@
     @endforelse
 </div>
 
+{{-- Enlace oculto de paginación para sincronización con el script de AJAX --}}
 @if($productos instanceof \Illuminate\Pagination\LengthAwarePaginator || $productos instanceof \Illuminate\Pagination\Paginator)
     <div id="pagination-links" class="hidden">
         {{ $productos->links() }}
     </div>
 @endif
-

@@ -1,4 +1,6 @@
+{{-- Componente Principal de Layout de la Aplicación --}}
 <x-app-layout>
+    {{-- Encabezado de la Vista: Título del Módulo de Ingreso Manual Rápido --}}
     <x-slot name="header">
         <h2 class="text-xl font-bold leading-tight text-emerald-400 flex items-center">
             <svg class="w-6 h-6 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm14 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z"></path></svg>
@@ -6,15 +8,18 @@
         </h2>
     </x-slot>
 
+    {{-- Contenedor Principal con Estado Reactivo de Alpine.js: ingresoManualData() --}}
     <div class="py-6 sm:py-12" x-data="ingresoManualData()">
         <div class="mx-auto max-w-7xl sm:px-6 lg:px-8">
             <div class="bg-slate-900/50 backdrop-blur-md shadow-lg sm:rounded-xl border border-slate-800/60 p-4 sm:p-6 text-slate-300">
                 
+                {{-- Formulario de Ingreso Directo a Bodega --}}
                 <form id="ingreso-manual-form" action="{{ route('recepciones.manual.store') }}" method="POST">
                     @csrf
                     
-                    <!-- General Settings -->
+                    {{-- Configuración General: Bodega, Proveedor y Documento de Referencia --}}
                     <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                        {{-- Selector de Bodega Destino --}}
                         <div>
                             <label class="block text-sm font-medium text-slate-400 mb-1">Bodega Destino <span class="text-rose-500">*</span></label>
                             <select name="bodega_id" required class="w-full bg-slate-950 border border-slate-800 rounded-lg text-slate-300 focus:ring-emerald-500 focus:border-emerald-500 text-base sm:text-sm">
@@ -26,6 +31,7 @@
                             @error('bodega_id') <span class="text-rose-500 text-xs mt-1">{{ $message }}</span> @enderror
                         </div>
 
+                        {{-- Selector de Proveedor con Botón Rápido "+ Nuevo" --}}
                         <div>
                             <label class="block text-sm font-medium text-slate-400 mb-1 flex justify-between">
                                 <span>Proveedor <span class="text-rose-500">*</span></span>
@@ -40,6 +46,7 @@
                             @error('proveedor_id') <span class="text-rose-500 text-xs mt-1">{{ $message }}</span> @enderror
                         </div>
 
+                        {{-- Input de Documento de Referencia (Factura / Guía) con validación anti-duplicados al perder el foco --}}
                         <div>
                             <label class="block text-sm font-medium text-slate-400 mb-1">Documento Ref (N° Factura / Guía)</label>
                             <input type="text" name="documento_referencia" x-model="documentoReferencia" @blur="checkDocDuplicado()" value="{{ old('documento_referencia') }}" placeholder="Ej: Factura 1234" class="w-full bg-slate-950 border border-slate-800 rounded-lg text-slate-300 focus:ring-emerald-500 focus:border-emerald-500 text-base sm:text-sm font-mono uppercase">
@@ -50,7 +57,7 @@
 
                     <hr class="border-slate-800 my-6">
 
-                    <!-- Products Table -->
+                    {{-- Encabezado de la Tabla Dinámica de Productos y Botón de Agregar Fila --}}
                     <div class="mb-4 flex justify-between items-center">
                         <h3 class="text-lg font-semibold text-emerald-400">Productos</h3>
                         <button type="button" @click="addItem()" class="inline-flex items-center px-3 py-2 text-sm font-medium text-indigo-300 bg-indigo-900/30 rounded-lg border border-indigo-700/50 hover:bg-indigo-900/50 transition-colors">
@@ -59,6 +66,7 @@
                         </button>
                     </div>
 
+                    {{-- Tabla de Ingreso Directo de Ítems --}}
                     <div class="overflow-x-auto bg-slate-950/50 rounded-lg border border-slate-800">
                         <table class="w-full text-left text-slate-400 whitespace-nowrap">
                             <thead class="text-xs uppercase bg-slate-900/80 border-b border-slate-800 text-slate-300">
@@ -72,10 +80,11 @@
                                 </tr>
                             </thead>
                             <tbody>
+                                {{-- Renderizado Reactivo de Filas Alpine x-for sobre 'items' --}}
                                 <template x-for="(item, index) in items" :key="item.id">
                                     <tr class="border-b border-slate-800/50 hover:bg-slate-900/50 transition-colors">
+                                        {{-- Columna 1: Selector de Producto del Catálogo con Detalle de Envase --}}
                                         <td class="px-3 py-2 align-top">
-                                            <!-- Product Searchable Select (Native select for simplicity on mobile) -->
                                             <div class="relative">
                                                 <select :name="`items[${index}][catalogo_producto_id]`" x-model="item.producto_id" @change="onProductSelect(item)" required class="w-full bg-slate-950 border border-slate-800 rounded text-slate-300 focus:ring-emerald-500 focus:border-emerald-500 text-base sm:text-xs py-2 px-2">
                                                     <option value="">Buscar o seleccionar...</option>
@@ -86,22 +95,27 @@
                                             </div>
                                             <div x-show="item.producto_id" class="text-[10px] text-slate-500 mt-1" x-text="getProductDetail(item.producto_id)"></div>
                                         </td>
+                                        {{-- Columna 2: Cantidad Física con Unidad de Medida --}}
                                         <td class="px-3 py-2 align-top">
                                             <input type="number" :name="`items[${index}][cantidad]`" x-model="item.cantidad" min="0.01" step="0.01" required class="w-full bg-slate-950 border border-slate-800 rounded text-slate-300 focus:ring-emerald-500 focus:border-emerald-500 text-base sm:text-xs py-2 px-2">
                                             <div x-show="item.producto_id" class="text-[10px] text-slate-500 mt-1" x-text="getUM(item.producto_id)"></div>
                                         </td>
+                                        {{-- Columna 3: Precio Unitario Referencial --}}
                                         <td class="px-3 py-2 align-top">
                                             <div class="relative">
                                                 <div class="absolute inset-y-0 left-0 flex items-center pl-2 pointer-events-none text-slate-500 text-xs">$</div>
                                                 <input type="number" :name="`items[${index}][precio_unitario]`" x-model="item.precio" min="0" step="0.01" placeholder="0" class="w-full bg-slate-950 border border-slate-800 rounded text-slate-300 focus:ring-emerald-500 focus:border-emerald-500 text-base sm:text-xs py-2 pl-6 px-2">
                                             </div>
                                         </td>
+                                        {{-- Columna 4: Fecha de Elaboración (Habilitada según meses de vencimiento) --}}
                                         <td class="px-3 py-2 align-top">
                                             <input type="date" :name="`items[${index}][fecha_elaboracion]`" x-model="item.fecha_elaboracion" @change="calcVencimiento(item)" :disabled="!needsElaboracion(item.producto_id)" :class="{'opacity-50 cursor-not-allowed bg-slate-900': !needsElaboracion(item.producto_id)}" class="w-full bg-slate-950 border border-slate-800 rounded text-slate-300 focus:ring-emerald-500 focus:border-emerald-500 text-base sm:text-xs py-2 px-2">
                                         </td>
+                                        {{-- Columna 5: Fecha de Vencimiento (Obligatoria para control FEFO) --}}
                                         <td class="px-3 py-2 align-top">
                                             <input type="date" :name="`items[${index}][fecha_vencimiento]`" x-model="item.fecha_vencimiento" :readonly="needsElaboracion(item.producto_id)" :class="{'bg-slate-900 text-emerald-400 font-bold': needsElaboracion(item.producto_id) && item.fecha_vencimiento, 'bg-slate-950': !needsElaboracion(item.producto_id)}" required class="w-full border border-slate-800 rounded text-slate-300 focus:ring-emerald-500 focus:border-emerald-500 text-base sm:text-xs py-2 px-2">
                                         </td>
+                                        {{-- Columna 6: Botón de Eliminación de la Fila --}}
                                         <td class="px-3 py-2 align-top text-center">
                                             <button type="button" @click="removeItem(index)" class="p-2 text-rose-400 hover:text-rose-300 hover:bg-rose-900/30 rounded-lg transition-colors" title="Quitar fila">
                                                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
@@ -111,11 +125,13 @@
                                 </template>
                             </tbody>
                         </table>
+                        {{-- Mensaje de Estado Vacío si la lista de filas no tiene elementos --}}
                         <div x-show="items.length === 0" class="p-8 text-center text-slate-500">
                             Presiona "Agregar Fila" para empezar a ingresar productos.
                         </div>
                     </div>
 
+                    {{-- Botón de Confirmación con Protección Contra Doble Envío --}}
                     <div class="mt-8 flex justify-end">
                         <button type="submit" :disabled="items.length === 0 || isSubmitting" class="w-full sm:w-auto px-6 py-4 sm:py-3 text-lg sm:text-base font-bold text-white transition-all bg-emerald-600 rounded-xl hover:bg-emerald-500 shadow-lg shadow-emerald-900/20 flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed">
                             <span x-show="!isSubmitting"><svg class="w-6 h-6 sm:w-5 sm:h-5 mr-2 inline-block" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg> Confirmar Ingreso Directo</span>
@@ -126,7 +142,7 @@
             </div>
         </div>
 
-        <!-- Modal Nuevo Proveedor -->
+        {{-- Modal de Alta Rápida de Nuevo Proveedor (AJAX) --}}
         <div x-show="openNuevoProveedor" class="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto overflow-x-hidden bg-black/60 backdrop-blur-sm" style="display: none;">
             <div @click.away="openNuevoProveedor = false" class="relative w-full max-w-md p-4 sm:p-6 mx-4 bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl">
                 <div class="flex items-center justify-between mb-5">
@@ -136,6 +152,7 @@
                     </button>
                 </div>
                 
+                {{-- Campos del Modal de Proveedor --}}
                 <div class="space-y-4">
                     <div>
                         <label class="block text-sm font-medium text-slate-400 mb-1">Nombre/Razón Social <span class="text-rose-500">*</span></label>
@@ -145,6 +162,7 @@
                         <label class="block text-sm font-medium text-slate-400 mb-1">RUT</label>
                         <input type="text" x-model="nuevoProv.rut" class="w-full bg-slate-950 border border-slate-800 rounded-lg text-slate-300 focus:ring-indigo-500 focus:border-indigo-500 text-base sm:text-sm">
                     </div>
+                    {{-- Acciones del Modal --}}
                     <div class="flex justify-end gap-3 mt-6">
                         <button type="button" @click="openNuevoProveedor = false" class="px-4 py-3 sm:py-2 text-base sm:text-sm font-medium text-slate-300 hover:text-white bg-slate-800 rounded-lg">Cancelar</button>
                         <button type="button" @click="saveProveedor()" :disabled="isSavingProv || !nuevoProv.nombre" class="px-4 py-3 sm:py-2 text-base sm:text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg disabled:opacity-50">
@@ -158,9 +176,15 @@
 
     </div>
 
+    {{-- Scripts de Inicialización del Componente Reactivo Alpine.js --}}
     @push('head')
     <script>
         document.addEventListener('alpine:init', () => {
+            /**
+             * Componente Reactivo: ingresoManualData()
+             * Maneja la interacción en memoria de las filas de productos, cálculo automático
+             * de vencimiento y alta rápida de proveedores vía AJAX.
+             */
             Alpine.data('ingresoManualData', () => ({
                 proveedores: @json($proveedores),
                 productosData: @json($productos->keyBy('id')),
@@ -171,17 +195,19 @@
                 nextId: 1,
                 isSubmitting: false,
                 
-                // Modal Proveedor
+                // Estado del Modal de Alta de Proveedor
                 openNuevoProveedor: false,
                 isSavingProv: false,
                 nuevoProv: { nombre: '', rut: '' },
                 provError: '',
 
+                /**
+                 * Inicialización del componente al montar
+                 */
                 init() {
-                    // Start with 1 empty row
+                    // Rehidratar desde old('items') si ocurrió un error de validación en el servidor
                     const oldItems = @json(old('items', []));
                     if(oldItems && oldItems.length > 0) {
-                        // Re-hydrate from old input on validation error
                         Object.values(oldItems).forEach(item => {
                             this.items.push({
                                 id: this.nextId++,
@@ -193,10 +219,11 @@
                             });
                         });
                     } else {
+                        // Comenzar con 1 fila vacía por defecto
                         this.addItem();
                     }
 
-                    // Form submit handler to prevent double submission
+                    // Manejador del submit del formulario con validaciones previas
                     document.getElementById('ingreso-manual-form').addEventListener('submit', (e) => {
                         if(this.items.length === 0) {
                             e.preventDefault();
@@ -212,6 +239,9 @@
                     });
                 },
 
+                /**
+                 * Valida en tiempo real que el número de factura no esté duplicado
+                 */
                 checkDocDuplicado() {
                     if(!this.proveedorId || !this.documentoReferencia || this.documentoReferencia.toUpperCase() === 'S/N') {
                         this.docError = '';
@@ -229,6 +259,9 @@
                         .catch(() => { this.docError = ''; });
                 },
 
+                /**
+                 * Añade una nueva fila al listado de productos
+                 */
                 addItem() {
                     this.items.push({
                         id: this.nextId++,
@@ -240,16 +273,25 @@
                     });
                 },
 
+                /**
+                 * Remueve una fila por su índice
+                 */
                 removeItem(index) {
                     this.items.splice(index, 1);
                 },
 
+                /**
+                 * Obtiene los metadatos de un producto a partir de su ID
+                 */
                 getProductInfo(id) {
                     return id ? this.productosData[id] : null;
                 },
 
+                /**
+                 * Gestiona el cambio de producto en una fila y alerta en caso de duplicidad
+                 */
                 onProductSelect(item) {
-                    // Reset dates on product change
+                    // Reiniciar fechas al cambiar el producto
                     item.fecha_elaboracion = '';
                     item.fecha_vencimiento = '';
 
@@ -262,6 +304,9 @@
                     }
                 },
 
+                /**
+                 * Retorna una cadena con el formato, capacidad y vida útil del producto
+                 */
                 getProductDetail(id) {
                     const p = this.getProductInfo(id);
                     if(!p) return '';
@@ -272,26 +317,35 @@
                     return details.join(' | ');
                 },
 
+                /**
+                 * Retorna la unidad de medida del producto (ej: UN, Display, etc.)
+                 */
                 getUM(id) {
                     const p = this.getProductInfo(id);
                     return p ? p.unidad_medida : '';
                 },
 
+                /**
+                 * Determina si el producto requiere cálculo por fecha de elaboración
+                 */
                 needsElaboracion(id) {
                     const p = this.getProductInfo(id);
                     return p && p.constante_vencimiento_meses > 0;
                 },
 
+                /**
+                 * Calcula la fecha de vencimiento a partir de la fecha de elaboración y la vida útil en meses
+                 */
                 calcVencimiento(item) {
                     const p = this.getProductInfo(item.producto_id);
                     if(p && p.constante_vencimiento_meses > 0 && item.fecha_elaboracion) {
                         const date = new Date(item.fecha_elaboracion);
-                        // Ensure we parse correctly (local timezone offset)
+                        // Asegurar el desfase horario adecuado
                         date.setMinutes(date.getMinutes() + date.getTimezoneOffset()); 
                         
                         date.setMonth(date.getMonth() + p.constante_vencimiento_meses);
                         
-                        // Format YYYY-MM-DD
+                        // Formatear a YYYY-MM-DD
                         const yyyy = date.getFullYear();
                         const mm = String(date.getMonth() + 1).padStart(2, '0');
                         const dd = String(date.getDate()).padStart(2, '0');
@@ -300,6 +354,9 @@
                     }
                 },
 
+                /**
+                 * Guarda un nuevo proveedor vía AJAX y lo selecciona automáticamente en el selector
+                 */
                 saveProveedor() {
                     if(!this.nuevoProv.nombre) return;
                     this.isSavingProv = true;
@@ -319,13 +376,13 @@
                         this.isSavingProv = false;
                         if(status === 200 && body.success) {
                             this.proveedores.push(body.proveedor);
-                            // Sort
+                            // Ordenar alfabéticamente
                             this.proveedores.sort((a,b) => a.nombre.localeCompare(b.nombre));
                             
-                            // Select it
+                            // Seleccionar automáticamente
                             this.proveedorId = body.proveedor.id;
                             
-                            // Close and reset
+                            // Cerrar y resetear modal
                             this.openNuevoProveedor = false;
                             this.nuevoProv = { nombre: '', rut: '' };
                         } else {

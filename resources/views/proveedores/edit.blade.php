@@ -1,70 +1,86 @@
+{{-- 
+========================================================================================
+VISTA: EDICIÓN DE PROVEEDOR
+RUTA: /proveedores/{proveedor}/edit
+CONTROLADOR: ProveedorController@edit -> ProveedorController@update
+PROPÓSITO:
+- Actualizar los datos del proveedor seleccionado en el ERP.
+- Permite modificar el código, RUT, razón social, teléfonos, correos y estado activo/inactivo.
+- Conserva valores originales del modelo o los devueltos por fallas de validación.
+========================================================================================
+--}}
+
 <x-app-layout>
+    {{-- Slot del encabezado: Título dinámico con el nombre del proveedor --}}
     <x-slot name="header">
         <h2 class="text-xl font-semibold leading-tight text-gray-800">
             {{ __('Editar Proveedor:') }} {{ $proveedor->nombre }}
         </h2>
     </x-slot>
 
+    {{-- Contenedor del formulario --}}
     <div class="py-12">
         <div class="mx-auto max-w-7xl sm:px-6 lg:px-8">
             <div class="overflow-hidden bg-white shadow-sm sm:rounded-lg">
                 <div class="p-6 text-gray-900 border-b border-gray-200">
                     
+                    {{-- Formulario para actualización con spoofing PUT --}}
                     <form method="POST" action="{{ route('proveedores.update', $proveedor) }}">
                         @csrf
                         @method('PUT')
 
+                        {{-- Grilla de dos columnas adaptativa --}}
                         <div class="grid grid-cols-1 gap-6 md:grid-cols-2">
-                            <!-- Código -->
+                            {{-- Campo: Código único mnemónico --}}
                             <div>
                                 <x-input-label for="codigo" :value="__('Código (Ej: CCU, EMB)')" />
                                 <x-text-input id="codigo" class="block w-full mt-1" type="text" name="codigo" :value="old('codigo', $proveedor->codigo)" required autofocus maxlength="20" />
                                 <x-input-error :messages="$errors->get('codigo')" class="mt-2" />
                             </div>
 
-                            <!-- RUT -->
+                            {{-- Campo: RUT de la empresa con formato chileno --}}
                             <div>
                                 <x-input-label for="rut" :value="__('RUT Empresa')" />
                                 <x-text-input id="rut" class="block w-full mt-1" type="text" name="rut" :value="old('rut', $proveedor->rut)" required maxlength="12" />
                                 <x-input-error :messages="$errors->get('rut')" class="mt-2" />
                             </div>
 
-                            <!-- Nombre -->
+                            {{-- Campo: Razón Social (Ocupa dos columnas) --}}
                             <div class="md:col-span-2">
                                 <x-input-label for="nombre" :value="__('Razón Social')" />
                                 <x-text-input id="nombre" class="block w-full mt-1" type="text" name="nombre" :value="old('nombre', $proveedor->nombre)" required maxlength="150" />
                                 <x-input-error :messages="$errors->get('nombre')" class="mt-2" />
                             </div>
 
-                            <!-- Contacto Nombre -->
+                            {{-- Campo: Nombre de persona de contacto --}}
                             <div>
                                 <x-input-label for="contacto_nombre" :value="__('Nombre de Contacto')" />
                                 <x-text-input id="contacto_nombre" class="block w-full mt-1" type="text" name="contacto_nombre" :value="old('contacto_nombre', $proveedor->contacto_nombre)" maxlength="100" />
                                 <x-input-error :messages="$errors->get('contacto_nombre')" class="mt-2" />
                             </div>
 
-                            <!-- Contacto Teléfono -->
+                            {{-- Campo: Teléfono de contacto --}}
                             <div>
                                 <x-input-label for="contacto_telefono" :value="__('Teléfono de Contacto')" />
                                 <x-text-input id="contacto_telefono" class="block w-full mt-1" type="text" name="contacto_telefono" :value="old('contacto_telefono', $proveedor->contacto_telefono)" maxlength="20" />
                                 <x-input-error :messages="$errors->get('contacto_telefono')" class="mt-2" />
                             </div>
 
-                            <!-- Contacto Email -->
+                            {{-- Campo: Email de contacto --}}
                             <div class="md:col-span-2">
                                 <x-input-label for="contacto_email" :value="__('Email de Contacto')" />
                                 <x-text-input id="contacto_email" class="block w-full mt-1" type="email" name="contacto_email" :value="old('contacto_email', $proveedor->contacto_email)" maxlength="100" />
                                 <x-input-error :messages="$errors->get('contacto_email')" class="mt-2" />
                             </div>
 
-                            <!-- Dirección -->
+                            {{-- Campo: Dirección física --}}
                             <div class="md:col-span-2">
                                 <x-input-label for="direccion" :value="__('Dirección')" />
                                 <textarea id="direccion" name="direccion" class="block w-full mt-1 border-gray-300 rounded-md shadow-sm focus:border-indigo-500 focus:ring-indigo-500" rows="3">{{ old('direccion', $proveedor->direccion) }}</textarea>
                                 <x-input-error :messages="$errors->get('direccion')" class="mt-2" />
                             </div>
 
-                            <!-- Activo -->
+                            {{-- Checkbox: Proveedor Activo --}}
                             <div class="block mt-4 md:col-span-2">
                                 <label for="activo" class="inline-flex items-center">
                                     <input id="activo" type="checkbox" class="text-indigo-600 border-gray-300 rounded shadow-sm focus:ring-indigo-500" name="activo" value="1" {{ old('activo', $proveedor->activo) ? 'checked' : '' }}>
@@ -73,6 +89,7 @@
                             </div>
                         </div>
 
+                        {{-- Botones de pie de formulario --}}
                         <div class="flex items-center justify-end mt-6">
                             <a href="{{ route('proveedores.index') }}" class="inline-flex items-center px-4 py-2 text-xs font-semibold tracking-widest text-gray-700 uppercase transition duration-150 ease-in-out bg-white border border-gray-300 rounded-md shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 disabled:opacity-25">
                                 Cancelar

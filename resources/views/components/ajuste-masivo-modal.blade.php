@@ -1,27 +1,53 @@
+{{--
+    =============================================================================
+    ERP DALLAS - COMPONENTE MODAL DE AJUSTE MASIVO DE STOCK (ajuste-masivo-modal)
+    =============================================================================
+    Propósito:
+    Permite auditar y corregir el inventario físico de un producto ajustando
+    múltiples lotes en una sola pantalla. Permite modificar fechas de elaboración,
+    vencimiento, agregar nuevos lotes, calcular automáticamente la fecha de expiración
+    según la constante de vida útil y registrar el motivo de auditoría requerido.
+    
+    Parámetros (@props):
+    - $bodega: Instancia de Bodega si el ajuste se realiza en un contexto de bodega local.
+    - $bodegas: Colección de bodegas disponibles para asignación cuando se crea un lote nuevo.
+    
+    Eventos Escuchados (Alpine.js):
+    - @open-ajuste-masivo.window: Recibe { producto: {...}, lotes: [...] } para abrir el modal.
+    =============================================================================
+--}}
 @props(['bodega' => null, 'bodegas' => []])
 
 @php
+    // Listado de formatos predeterminados para envases comerciales
     $formatosFijos = ['Botella','Vidrio','Lata','Retornable'];
+    // Extracción de formatos históricos guardados en la base de datos para autocompletado
     $formatosHistoricos = \App\Models\CatalogoProducto::whereNotNull('formato')->select('formato')->distinct()->pluck('formato')->toArray();
+    // Unión de listas sin duplicados
     $todosFormatos = array_unique(array_merge($formatosFijos, $formatosHistoricos));
 
+    // Listado de capacidades comunes en bebidas y cervezas
     $capacidadesFijas = ['200 cc','250 cc','300 cc','330 cc','350 cc','500 cc','575 cc','600 cc','1 Litro','1.25 Litros','1.5 Litros','2 Litros','2.5 Litros','3 Litros'];
+    // Capacidades históricas existentes en el catálogo
     $capacidadesHistoricas = \App\Models\CatalogoProducto::whereNotNull('capacidad')->select('capacidad')->distinct()->pluck('capacidad')->toArray();
     $todasCapacidades = array_unique(array_merge($capacidadesFijas, $capacidadesHistoricas));
 @endphp
 
-<!-- Modal Ajuste Masivo -->
+{{-- =========================================================================
+     CONTENEDOR DEL MODAL CON ESTADO REACTIVO ALPINE.JS
+     ========================================================================= --}}
 <div x-data="{
-        open: false,
-        producto: null,
-        lotes: [],
-        motivo: '',
-        isSubmitting: false,
-        mesesVidaUtil: '',
-        productoFormato: '',
-        productoCapacidad: '',
-        bodegaIdProp: {{ $bodega ? $bodega->id : 'null' }},
+        open: false,                     // Control de visibilidad del modal
+        producto: null,                  // Objeto del producto en edición
+        lotes: [],                       // Arreglo reactivo de lotes asociados
+        motivo: '',                      // Justificación de auditoría del ajuste
+        isSubmitting: false,             // Bandera para prevenir doble envío
+        mesesVidaUtil: '',               // Constante en meses para cálculo FEFO
+        productoFormato: '',             // Formato del envase (Lata, Botella, etc.)
+        productoCapacidad: '',           // Volumen o gramaje (350cc, 1.5L, etc.)
+        bodegaIdProp: {{ $bodega ? $bodega->id : 'null' }}, // ID de bodega contextual
 
+            // Inicializa los datos del producto y mapea sus lotes al abrir el modal
             openModal(prodData, lotesData) {
                 this.producto = prodData;
                 this.mesesVidaUtil = prodData.constante_vencimiento_meses || '';
@@ -30,7 +56,7 @@
                 this.motivo = '';
                 this.isSubmitting = false;
                 
-                // Parse format to find default units
+                // Parser para detectar si el formato especifica unidades por empaque (ej: Pack x 6)
                 let defaultUnits = 1;
                 if (prodData.formato) {
                     const match = String(prodData.formato).match(/\b(?:pack\s*)?(?:x\s*)?(\d+)\b/i);
@@ -39,6 +65,7 @@
                     }
                 }
 
+                // Mapeo estructurado de los lotes recibidos
                 this.lotes = lotesData.map(lote => ({
                     id: lote.id,
                     fecha_elaboracion: lote.fecha_elaboracion ? lote.fecha_elaboracion.split('T')[0] : '',
@@ -47,6 +74,7 @@
                     empaque: defaultUnits > 1 ? 'Display' : 'Unidad',
                     unidades_por_empaque: defaultUnits,
                     cantidad_empaques: Math.floor(lote.cantidad_disponible / defaultUnits) + (lote.cantidad_disponible % defaultUnits > 0 ? (lote.cantidad_disponible % defaultUnits) / defaultUnits : 0),
+                    // Getter dinámico que multiplica empaques por unidades por empaque
                     get cantidad_total() {
                         return (parseFloat(this.cantidad_empaques) || 0) * (parseInt(this.unidades_por_empaque) || 1);
                     }
@@ -55,6 +83,7 @@
                 this.open = true;
             },
 
+            // Sincroniza la etiqueta de formato según las unidades por empaque elegidas
             actualizarFormatoProducto(unidades) {
                 if (parseInt(unidades) > 1) {
                     this.productoFormato = 'Display ' + unidades;
@@ -63,11 +92,13 @@
                 }
             },
 
+            // Genera dinámicamente la URL de destino del formulario
             getFormAction() {
                 if (!this.producto) return '';
                 return '{{ url('productos') }}/' + this.producto.id + '/ajuste-masivo';
             },
 
+            // Agrega una nueva fila de lote al arreglo reactivo
             addLote() {
                 let defaultUnits = 1;
                 if (this.producto && this.producto.formato) {
@@ -92,6 +123,7 @@
                 });
             },
 
+            // Calcula automáticamente la fecha de vencimiento a partir de la fecha de elaboración
             calcularVencimiento(lote) {
                 if (lote.fecha_elaboracion && this.mesesVidaUtil) {
                     let fecha = new Date(lote.fecha_elaboracion + 'T12:00:00');
@@ -100,12 +132,14 @@
                 }
             },
 
+            // Remueve un lote de la lista
             removeLote(index) {
                 this.lotes.splice(index, 1);
             },
 
+            // Valida fechas requeridas antes de enviar el formulario
             submitForm() {
-                // Verify required dates
+                // Verificar que todos los lotes con stock tengan fecha de caducidad asignada
                 for (let i = 0; i < this.lotes.length; i++) {
                     if (this.lotes[i].cantidad_total > 0 && !this.lotes[i].fecha_vencimiento) {
                         alert('Debe especificar la fecha de vencimiento para todos los lotes con stock.');
@@ -123,8 +157,10 @@
          style="display: none;"
          x-transition>
          
+         {{-- Ventana Modal con diseño oscuro executive y scroll interno --}}
          <div class="bg-slate-900 border border-slate-700 w-full max-w-4xl rounded-2xl shadow-2xl flex flex-col overflow-hidden max-h-[90vh]">
             
+            {{-- Encabezado del Modal con título y botón de cierre --}}
             <div class="p-4 sm:p-6 border-b border-slate-800 flex justify-between items-center bg-slate-800/50">
                 <h3 class="text-lg font-bold text-white flex items-center gap-2">
                     <svg class="w-5 h-5 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>
@@ -135,6 +171,7 @@
                 </button>
             </div>
 
+            {{-- Cuerpo del Modal con ficha de producto y lista editable de lotes --}}
             <div class="p-4 sm:p-6 overflow-y-auto custom-scrollbar flex-1 relative">
                 <div x-show="producto" class="mb-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
                     <div>
@@ -142,6 +179,7 @@
                         <div class="text-sm text-slate-400 mt-2 flex flex-col sm:flex-row sm:flex-wrap items-start sm:items-center gap-3">
                             <span class="font-mono bg-slate-800 px-2 py-1 rounded text-xs">SKU: <span x-text="producto?.sku"></span></span> 
                             
+                            {{-- Selector o input manual de Formato --}}
                             <div class="flex items-center gap-1" x-data="{ manual: false }" x-init="$watch('productoFormato', v => { if(v && !{{ json_encode($todosFormatos) }}.includes(v)) manual = true; }); if(productoFormato && !{{ json_encode($todosFormatos) }}.includes(productoFormato)) manual = true;">
                                 <label for="formato_input" class="text-xs font-semibold text-slate-300">Formato:</label>
                                 <select x-show="!manual" id="formato_input" x-model="productoFormato" form="ajuste-masivo-form" name="formato" class="bg-slate-800 border-slate-700 text-slate-200 text-xs rounded px-2 py-1 w-28 focus:ring-indigo-500 focus:border-indigo-500">
@@ -157,6 +195,7 @@
                                 </button>
                             </div>
 
+                            {{-- Selector o input manual de Capacidad --}}
                             <div class="flex items-center gap-1" x-data="{ manual: false }" x-init="$watch('productoCapacidad', v => { if(v && !{{ json_encode($todasCapacidades) }}.includes(v)) manual = true; }); if(productoCapacidad && !{{ json_encode($todasCapacidades) }}.includes(productoCapacidad)) manual = true;">
                                 <label for="capacidad_input" class="text-xs font-semibold text-slate-300">Capacidad:</label>
                                 <select x-show="!manual" id="capacidad_input" x-model="productoCapacidad" form="ajuste-masivo-form" name="capacidad" class="bg-slate-800 border-slate-700 text-slate-200 text-xs rounded px-2 py-1 w-28 focus:ring-indigo-500 focus:border-indigo-500">
@@ -173,20 +212,25 @@
                             </div>
                         </div>
                     </div>
+
+                    {{-- Calculadora rápida de Vida Útil en meses --}}
                     <div class="bg-indigo-900/30 border border-indigo-500/30 rounded-lg p-3">
                         <label for="vida_util_global" class="block text-xs font-medium text-indigo-300 mb-1">Calculadora: Vida Útil (Meses)</label>
                         <input type="number" id="vida_util_global" x-model="mesesVidaUtil" @change="lotes.forEach(l => calcularVencimiento(l))" min="1" step="1" class="w-32 bg-slate-800 border-slate-700 text-slate-200 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm" placeholder="Ej. 6">
                     </div>
                 </div>
 
+                {{-- Formulario Principal de Ajuste Masivo --}}
                 <form id="ajuste-masivo-form" :action="getFormAction()" method="POST">
                     @csrf
                     
                     <div class="space-y-4">
+                        {{-- Bucle Alpine x-for que itera sobre los lotes del producto --}}
                         <template x-for="(lote, index) in lotes" :key="index">
                             <div class="bg-slate-800/40 border border-slate-700/50 rounded-xl p-4 relative">
                                 <input type="hidden" :name="'lotes['+index+'][id]'" :value="lote.id">
                                 
+                                {{-- Badges indicativos de lote nuevo vs lote existente --}}
                                 <div class="absolute top-2 right-2 flex gap-2">
                                     <span x-show="lote.id" class="px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide bg-indigo-900/50 text-indigo-400 border border-indigo-700/50 rounded">Lote Existente</span>
                                     <span x-show="!lote.id" class="px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide bg-emerald-900/50 text-emerald-400 border border-emerald-700/50 rounded">Lote Nuevo</span>
@@ -197,7 +241,7 @@
 
                                 <div class="grid grid-cols-1 lg:grid-cols-12 gap-4 items-end mt-4 lg:mt-0">
                                     
-                                    <!-- Bodega Destino (solo para lotes nuevos globales) -->
+                                    {{-- Bodega Destino (solo para lotes nuevos creados en contexto global) --}}
                                     <template x-if="!lote.id && !bodegaIdProp">
                                         <div class="col-span-1 lg:col-span-12">
                                             <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Bodega de Destino <span class="text-rose-500">*</span></label>
@@ -213,17 +257,19 @@
                                         <input type="hidden" :name="'lotes['+index+'][bodega_id]'" :value="lote.bodega_id">
                                     </template>
                                     
-                                    <!-- Fechas -->
+                                    {{-- Fecha de Vencimiento obligatoria (motor FEFO) --}}
                                     <div class="col-span-1 lg:col-span-3">
                                         <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Vencimiento <span class="text-rose-500">*</span></label>
                                         <input type="date" :name="'lotes['+index+'][fecha_vencimiento]'" x-model="lote.fecha_vencimiento" required class="w-full bg-slate-900 border-slate-700 rounded-md text-sm text-slate-300 focus:ring-indigo-500 focus:border-indigo-500">
                                     </div>
+
+                                    {{-- Fecha de Elaboración con recálculo automático de caducidad --}}
                                     <div class="col-span-1 lg:col-span-3">
                                         <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Elaboración</label>
                                         <input type="date" :name="'lotes['+index+'][fecha_elaboracion]'" x-model="lote.fecha_elaboracion" @change="calcularVencimiento(lote)" class="w-full bg-slate-900 border-slate-700 rounded-md text-sm text-slate-300 focus:ring-indigo-500 focus:border-indigo-500">
                                     </div>
 
-                                    <!-- Empaque -->
+                                    {{-- Tipo de Empaque y unidades por caja/display --}}
                                     <div class="col-span-1 lg:col-span-2">
                                         <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Empaque</label>
                                         <select x-model="lote.unidades_por_empaque" @change="actualizarFormatoProducto(lote.unidades_por_empaque)" class="w-full bg-slate-900 border-slate-700 rounded-md text-sm text-slate-300 focus:ring-indigo-500 focus:border-indigo-500">
@@ -235,7 +281,7 @@
                                         </select>
                                     </div>
 
-                                    <!-- Conteo Físico -->
+                                    {{-- Conteo Físico Real y cálculo de diferencias --}}
                                     <div class="col-span-1 lg:col-span-4 flex items-center gap-3">
                                         <div class="flex-1">
                                             <label class="block text-[10px] font-bold text-amber-400 uppercase tracking-wider mb-1">Conteo Físico</label>
@@ -245,6 +291,7 @@
                                             <input type="hidden" :name="'lotes['+index+'][cantidad_nueva]'" :value="lote.cantidad_total">
                                             <span class="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-0.5">Total Real</span>
                                             <span class="text-xl font-black text-indigo-400" x-text="lote.cantidad_total"></span> <span class="text-xs text-indigo-500 font-bold">UN</span>
+                                            {{-- Muestra la diferencia neta positiva o negativa con respecto al saldo previo --}}
                                             <div x-show="lote.id && lote.cantidad_total !== lote.cantidad_original" class="text-[10px] font-bold" :class="lote.cantidad_total > lote.cantidad_original ? 'text-emerald-400' : 'text-rose-400'">
                                                 <span x-text="lote.cantidad_total > lote.cantidad_original ? '+' : ''"></span><span x-text="lote.cantidad_total - lote.cantidad_original"></span> dif
                                             </div>
@@ -255,12 +302,14 @@
                             </div>
                         </template>
 
+                        {{-- Botón para agregar una nueva línea de lote --}}
                         <button type="button" @click="addLote()" class="w-full py-3 border-2 border-dashed border-slate-700 hover:border-indigo-500 hover:bg-indigo-900/10 rounded-xl text-slate-400 hover:text-indigo-400 transition-colors font-medium flex items-center justify-center gap-2">
                             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path></svg>
                             Añadir otro lote / fecha
                         </button>
                     </div>
 
+                    {{-- Motivo general de la auditoría o ajuste --}}
                     <div class="mt-6 border-t border-slate-700/50 pt-4">
                         <label class="block text-sm font-medium text-slate-300 mb-2">Motivo del Ajuste General</label>
                         <input type="text" name="motivo" x-model="motivo" class="w-full bg-slate-800 border-slate-700 rounded-lg text-white focus:ring-indigo-500 focus:border-indigo-500 p-3" placeholder="Ej: Conteo físico mensual, Merma, Corrección de fechas...">
@@ -269,6 +318,7 @@
                 </form>
             </div>
 
+            {{-- Pie del Modal: Botones Cancelar y Guardar Ajuste --}}
             <div class="p-4 sm:p-6 border-t border-slate-800 bg-slate-800/30 flex justify-end gap-3">
                 <button type="button" @click="open = false" class="px-4 py-2 text-sm font-medium text-slate-300 bg-slate-800 border border-slate-700 rounded-lg hover:bg-slate-700 transition-colors">
                     Cancelar
@@ -280,3 +330,4 @@
             </div>
          </div>
     </div>
+
