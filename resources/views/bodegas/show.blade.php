@@ -460,6 +460,11 @@ PROPÓSITO:
                     .then(html => {
                         tableContainer.innerHTML = html;
                         
+                        // Reactivar los componentes reactivos de Alpine.js en la tabla inyectada
+                        if (window.Alpine) {
+                            window.Alpine.initTree(tableContainer);
+                        }
+                        
                         // Extrae y sincroniza la barra de paginación del HTML devuelto
                         const tempDiv = document.createElement('div');
                         tempDiv.innerHTML = html;

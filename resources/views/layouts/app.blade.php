@@ -37,12 +37,12 @@
     </head>
     <body class="font-sans antialiased text-slate-200 bg-slate-950 selection:bg-indigo-500/30">
         
-        {{-- Destellos Ambientales de Fondo (Atmósfera visual oscura con efecto Glassmorphism) --}}
+        {{-- Destellos Ambientales de Fondo (Atmósfera visual oscura con efecto Glassmorphism optimizado por GPU) --}}
         <div class="fixed inset-0 z-0 overflow-hidden pointer-events-none">
             {{-- Destello radial superior izquierdo en tono índigo --}}
-            <div class="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] rounded-full bg-indigo-600/10 blur-[120px] animate-float"></div>
+            <div class="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] rounded-full bg-indigo-600/10 blur-[100px] transform-gpu will-change-transform animate-float"></div>
             {{-- Destello radial inferior derecho en tono cian con retraso de animación --}}
-            <div class="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] rounded-full bg-cyan-600/10 blur-[120px] animate-float" style="animation-delay: 2s;"></div>
+            <div class="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] rounded-full bg-cyan-600/10 blur-[100px] transform-gpu will-change-transform animate-float" style="animation-delay: 2s;"></div>
         </div>
 
         {{-- Contenedor Raíz de Interfaz con Estado Alpine para el Sidebar Móvil --}}

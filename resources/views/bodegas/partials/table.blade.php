@@ -31,6 +31,7 @@ PROPÓSITO:
             <th scope="col" class="px-6 py-3">SKU</th>
             <th scope="col" class="px-6 py-3">Producto</th>
             <th scope="col" class="px-6 py-3 text-right">Cantidad Disponible</th>
+            <th scope="col" class="px-6 py-3 text-center">Acciones</th>
         </tr>
     </thead>
     {{-- Itera sobre la colección de productos asignados a la bodega actual --}}
@@ -79,11 +80,35 @@ PROPÓSITO:
                         </span>
                     @endif
                 </td>
+                {{-- Columna Acciones Rápidas del Producto a Nivel Bodega --}}
+                <td class="px-6 py-4 text-center" @click.stop>
+                    <div class="flex items-center justify-center gap-2">
+                        <button type="button"
+                            class="btn-ajuste-masivo inline-flex items-center gap-1 px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded border border-slate-600 transition-colors text-xs font-medium"
+                            data-producto="{{ $productoJson }}"
+                            data-lotes="{{ $lotesJson }}"
+                            onclick="window.dispatchEvent(new CustomEvent('open-ajuste-masivo', { detail: { producto: JSON.parse(this.dataset.producto), lotes: JSON.parse(this.dataset.lotes) } }))"
+                            title="Ajustar Stock">
+                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>
+                            Ajustar
+                        </button>
+                        <form action="{{ route('bodegas.producto.eliminar', [$bodega, $producto]) }}" method="POST" class="inline" onsubmit="return confirm('¿Estás seguro de eliminar el producto \'{{ addslashes($producto->nombre) }}\' de la bodega \'{{ addslashes($bodega->nombre) }}\'?\n\n- Se darán de baja todas sus existencias ({{ number_format($stockTotal, 0) }} UN).\n- La acción quedará registrada en el historial de auditoría con tu usuario.');">
+                            @csrf
+                            @method('DELETE')
+                            <button type="submit"
+                                class="inline-flex items-center gap-1 px-2.5 py-1.5 bg-rose-950/40 hover:bg-rose-900/60 text-rose-300 hover:text-white rounded border border-rose-800/50 transition-colors text-xs font-semibold shadow-sm"
+                                title="Eliminar producto de esta bodega">
+                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                                Eliminar
+                            </button>
+                        </form>
+                    </div>
+                </td>
             </tr>
 
             {{-- Fila secundaria de detalles: Se revela al expandir el acordeón mostrando los lotes --}}
             <tr x-show="expanded" style="display: none;" class="bg-slate-950/50">
-                <td colspan="3" class="px-10 py-4">
+                <td colspan="4" class="px-10 py-4">
                     <div class="bg-slate-900 rounded-lg border border-slate-700/50 overflow-hidden shadow-inner">
                         <table class="w-full text-xs text-left text-slate-400">
                             {{-- Cabecera de la subtabla de lotes individuales --}}
@@ -147,6 +172,15 @@ PROPÓSITO:
                                                 <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" /></svg>
                                                 Mover
                                             </button>
+                                            {{-- Botón para eliminar/dar de baja este lote específico --}}
+                                            <form action="{{ route('bodegas.lotes.eliminar', [$bodega, $lote]) }}" method="POST" class="inline" onsubmit="return confirm('¿Estás seguro de eliminar el Lote #{{ $lote->id }} ({{ number_format($lote->cantidad_disponible, 0) }} UN) de esta bodega?\n\nEsta acción quedará registrada en auditoría.');">
+                                                @csrf
+                                                @method('DELETE')
+                                                <button type="submit" class="inline-flex justify-center items-center text-xs px-2 py-1 bg-rose-950/40 hover:bg-rose-900/60 text-rose-300 hover:text-white rounded border border-rose-800/50 transition-colors" title="Eliminar este Lote">
+                                                    <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                                                    Baja
+                                                </button>
+                                            </form>
                                         </div>
                                     </td>
                                 </tr>
@@ -196,7 +230,7 @@ PROPÓSITO:
     @empty
         <tbody>
             <tr>
-                <td colspan="3" class="px-6 py-12 text-center text-slate-500 bg-slate-900/30">
+                <td colspan="4" class="px-6 py-12 text-center text-slate-500 bg-slate-900/30">
                     <svg class="mx-auto h-12 w-12 text-slate-600 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"></path></svg>
                     <p class="text-lg font-medium text-slate-400">No se encontraron productos</p>
                     <p class="text-sm mt-1">Prueba ajustando los filtros.</p>
@@ -243,18 +277,28 @@ PROPÓSITO:
                         <span class="bg-indigo-900/50 text-indigo-300 text-[10px] font-bold px-2 py-0.5 rounded border border-indigo-700/50 uppercase">{{ $producto->capacidad }}</span>
                     @endif
                 </div>
-                {{-- Resumen de stock total y acceso al ajuste --}}
+                {{-- Resumen de stock total y acceso al ajuste / eliminación --}}
                 <div class="mt-1 flex justify-between items-center border-t border-slate-700/50 pt-3">
                     <div class="flex flex-col gap-1">
                         <span class="text-xs text-slate-400 font-medium">Stock Total:</span>
-                        <button type="button"
-                            class="btn-ajuste-masivo inline-flex items-center gap-1 text-[10px] font-bold text-indigo-400 hover:text-indigo-300 uppercase tracking-wider"
-                            data-producto="{{ $productoJson }}"
-                            data-lotes="{{ $lotesJson }}"
-                            onclick="window.dispatchEvent(new CustomEvent('open-ajuste-masivo', { detail: { producto: JSON.parse(this.dataset.producto), lotes: JSON.parse(this.dataset.lotes) } }))">
-                            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>
-                            Ajustar
-                        </button>
+                        <div class="flex items-center gap-3">
+                            <button type="button"
+                                class="btn-ajuste-masivo inline-flex items-center gap-1 text-[10px] font-bold text-indigo-400 hover:text-indigo-300 uppercase tracking-wider"
+                                data-producto="{{ $productoJson }}"
+                                data-lotes="{{ $lotesJson }}"
+                                onclick="window.dispatchEvent(new CustomEvent('open-ajuste-masivo', { detail: { producto: JSON.parse(this.dataset.producto), lotes: JSON.parse(this.dataset.lotes) } }))">
+                                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>
+                                Ajustar
+                            </button>
+                            <form action="{{ route('bodegas.producto.eliminar', [$bodega, $producto]) }}" method="POST" class="inline" onsubmit="return confirm('¿Estás seguro de eliminar el producto \'{{ addslashes($producto->nombre) }}\' de la bodega \'{{ addslashes($bodega->nombre) }}\'?\n\n- Se darán de baja todas sus existencias ({{ number_format($stockTotal, 0) }} UN).\n- Quedará registrado en auditoría.');">
+                                @csrf
+                                @method('DELETE')
+                                <button type="submit" class="inline-flex items-center gap-1 text-[10px] font-bold text-rose-400 hover:text-rose-300 uppercase tracking-wider">
+                                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                                    Eliminar
+                                </button>
+                            </form>
+                        </div>
                     </div>
                     @if($stockTotal > 0)
                         <span class="bg-indigo-900/80 text-indigo-300 border border-indigo-600 px-3 py-1 rounded-lg font-bold text-sm">{{ number_format($stockTotal, 0) }} UN</span>
@@ -297,28 +341,36 @@ PROPÓSITO:
                         <div class="flex flex-col gap-2 mt-3">
                             <div class="text-[10px] font-bold text-slate-500 uppercase tracking-widest text-center mb-1">Acciones</div>
                             <button type="button"
-                                class="btn-ajuste-masivo w-full flex justify-center items-center gap-2 text-sm py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg border border-slate-600 transition-colors shadow-sm"
+                                class="btn-ajuste-masivo w-full flex justify-center items-center gap-2 text-sm py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg border border-slate-600 transition-colors shadow-sm"
                                 data-producto="{{ $productoJson }}"
                                 data-lotes="{{ $lotesJson }}"
                                 onclick="window.dispatchEvent(new CustomEvent('open-ajuste-masivo', { detail: { producto: JSON.parse(this.dataset.producto), lotes: JSON.parse(this.dataset.lotes) } }))"
                                 title="Ajustar">
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>
-                                Ajustar
+                                Ajustar Stock
                             </button>
                             <button type="button"
-                                class="w-full flex justify-center items-center gap-2 text-sm py-2.5 bg-indigo-900/40 hover:bg-indigo-900/60 text-indigo-300 rounded-lg border border-indigo-700/50 transition-colors shadow-sm"
+                                class="w-full flex justify-center items-center gap-2 text-sm py-2 bg-indigo-900/40 hover:bg-indigo-900/60 text-indigo-300 rounded-lg border border-indigo-700/50 transition-colors shadow-sm"
                                 onclick="window.dispatchEvent(new CustomEvent('open-fechas-modal', { detail: { id: '{{ $lote->id }}', elab: '{{ $lote->fecha_elaboracion ? $lote->fecha_elaboracion->format('d/m/Y') : 'N/A' }}', venc: '{{ $lote->fecha_vencimiento ? $lote->fecha_vencimiento->format('d/m/Y') : 'S/F' }}', url: '{{ route('lotes.fechas.update', $lote->id) }}', vida_util: '{{ $producto->constante_vencimiento_meses ?? '' }}' } }))"
                                 title="Fechas">
                                 <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
                                 Fechas
                             </button>
                             <button type="button"
-                                class="w-full flex justify-center items-center gap-2 text-sm py-2.5 bg-amber-900/40 hover:bg-amber-900/60 text-amber-300 rounded-lg border border-amber-700/50 transition-colors shadow-sm"
+                                class="w-full flex justify-center items-center gap-2 text-sm py-2 bg-amber-900/40 hover:bg-amber-900/60 text-amber-300 rounded-lg border border-amber-700/50 transition-colors shadow-sm"
                                 onclick="window.dispatchEvent(new CustomEvent('open-transfer-lote-modal', { detail: { id: {{ $lote->id }}, bodegaNombre: '{{ addslashes($bodega->nombre ?? '') }}' } }))"
                                 title="Mover">
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" /></svg>
-                                Mover
+                                Mover a Otra Bodega
                             </button>
+                            <form action="{{ route('bodegas.lotes.eliminar', [$bodega, $lote]) }}" method="POST" class="w-full" onsubmit="return confirm('¿Estás seguro de eliminar el Lote #{{ $lote->id }} ({{ number_format($lote->cantidad_disponible, 0) }} UN) de esta bodega?\n\nEsta acción quedará registrada en auditoría.');">
+                                @csrf
+                                @method('DELETE')
+                                <button type="submit" class="w-full flex justify-center items-center gap-2 text-sm py-2 bg-rose-950/40 hover:bg-rose-900/60 text-rose-300 hover:text-white rounded-lg border border-rose-800/50 transition-colors shadow-sm font-semibold">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                                    Dar de Baja Lote
+                                </button>
+                            </form>
                         </div>
                     </div>
                     @empty
@@ -336,20 +388,14 @@ PROPÓSITO:
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>
                                 Ajustar
                             </button>
-                            <button type="button"
-                                class="w-full flex justify-center items-center gap-2 text-sm py-2.5 bg-indigo-900/40 hover:bg-indigo-900/60 text-indigo-300 rounded-lg border border-indigo-700/50 transition-colors shadow-sm opacity-50 cursor-not-allowed"
-                                onclick="alert('No hay lotes para modificar fechas.')"
-                                title="Fechas">
-                                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
-                                Fechas
-                            </button>
-                            <button type="button"
-                                class="w-full flex justify-center items-center gap-2 text-sm py-2.5 bg-amber-900/40 hover:bg-amber-900/60 text-amber-300 rounded-lg border border-amber-700/50 transition-colors shadow-sm opacity-50 cursor-not-allowed"
-                                onclick="alert('No hay lotes para mover.')"
-                                title="Mover">
-                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" /></svg>
-                                Mover
-                            </button>
+                            <form action="{{ route('bodegas.producto.eliminar', [$bodega, $producto]) }}" method="POST" class="w-full" onsubmit="return confirm('¿Estás seguro de eliminar este producto del inventario de esta bodega?\n\nEsta acción quedará registrada en auditoría.');">
+                                @csrf
+                                @method('DELETE')
+                                <button type="submit" class="w-full flex justify-center items-center gap-2 text-sm py-2 bg-rose-950/40 hover:bg-rose-900/60 text-rose-300 hover:text-white rounded-lg border border-rose-800/50 transition-colors shadow-sm font-semibold">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                                    Eliminar Producto de Bodega
+                                </button>
+                            </form>
                         </div>
                     </div>
                     @endforelse

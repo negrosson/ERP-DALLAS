@@ -42,23 +42,6 @@ class BodegaController extends Controller
      */
     public function show(Bodega $bodega, Request $request)
     {
-        // Solo formatos/capacidades que existan en ESTA bodega (fix bug #1)
-        $formatos = \App\Models\CatalogoProducto::select('formato')
-                        ->whereHas('lotesStock', fn($q) => $q->where('bodega_id', $bodega->id))
-                        ->whereNotNull('formato')
-                        ->where('formato', '!=', '')
-                        ->distinct()
-                        ->orderBy('formato')
-                        ->pluck('formato');
-                        
-        $capacidades = \App\Models\CatalogoProducto::select('capacidad')
-                        ->whereHas('lotesStock', fn($q) => $q->where('bodega_id', $bodega->id))
-                        ->whereNotNull('capacidad')
-                        ->where('capacidad', '!=', '')
-                        ->distinct()
-                        ->orderBy('capacidad')
-                        ->pluck('capacidad');
-
         // Filtro contextual de marcas por tipo de bodega
         $nombreBodega = mb_strtolower($bodega->nombre);
 
@@ -217,6 +200,23 @@ class BodegaController extends Controller
         if ($request->ajax()) {
             return view('bodegas.partials.table', compact('productos', 'bodega'))->render();
         }
+
+        // Solo formatos/capacidades que existan en ESTA bodega para los filtros del encabezado
+        $formatos = \App\Models\CatalogoProducto::select('formato')
+                        ->whereHas('lotesStock', fn($q) => $q->where('bodega_id', $bodega->id))
+                        ->whereNotNull('formato')
+                        ->where('formato', '!=', '')
+                        ->distinct()
+                        ->orderBy('formato')
+                        ->pluck('formato');
+                        
+        $capacidades = \App\Models\CatalogoProducto::select('capacidad')
+                        ->whereHas('lotesStock', fn($q) => $q->where('bodega_id', $bodega->id))
+                        ->whereNotNull('capacidad')
+                        ->where('capacidad', '!=', '')
+                        ->distinct()
+                        ->orderBy('capacidad')
+                        ->pluck('capacidad');
             
         $historial = \App\Models\HistorialAjuste::whereHas('lote', function($q) use ($bodega) {
             $q->where('bodega_id', $bodega->id);
@@ -572,6 +572,10 @@ class BodegaController extends Controller
         abort_unless($ajuste->lote->bodega->activa, 403, 'No puede revertir ajustes en una bodega inactiva.');
 
         $lote = $ajuste->lote;
+        if ($lote->trashed()) {
+            $lote->restore();
+        }
+
         $cantidadAnterior = $lote->cantidad_disponible;
         $cantidadNueva = $cantidadAnterior - $ajuste->diferencia;
 
@@ -589,5 +593,73 @@ class BodegaController extends Controller
         ]);
 
         return redirect()->back()->with('success', 'Ajuste revertido correctamente.');
+    }
+
+    /**
+     * Eliminar un producto completo de la bodega dada de baja de existencias y registro en auditoría.
+     */
+    public function eliminarProducto(Request $request, Bodega $bodega, \App\Models\CatalogoProducto $producto)
+    {
+        abort_unless($bodega->activa, 403, 'No puede eliminar productos de una bodega inactiva.');
+
+        $lotes = \App\Models\LoteStock::where('bodega_id', $bodega->id)
+            ->where('catalogo_producto_id', $producto->id)
+            ->get();
+
+        if ($lotes->isEmpty()) {
+            return redirect()->back()->with('error', 'El producto no posee existencias ni lotes en esta bodega.');
+        }
+
+        \Illuminate\Support\Facades\DB::transaction(function () use ($lotes, $bodega, $producto) {
+            foreach ($lotes as $lote) {
+                $cantidadAnterior = (float)$lote->cantidad_disponible;
+
+                \App\Models\HistorialAjuste::create([
+                    'lote_stock_id' => $lote->id,
+                    'user_id' => auth()->id(),
+                    'cantidad_anterior' => $cantidadAnterior,
+                    'cantidad_nueva' => 0,
+                    'diferencia' => -$cantidadAnterior,
+                    'motivo' => "Producto '{$producto->nombre}' eliminado de bodega '{$bodega->nombre}' (Baja de existencias)",
+                    'es_reversion' => false,
+                ]);
+
+                $lote->cantidad_disponible = 0;
+                $lote->save();
+                $lote->delete(); // Soft delete para preservar integridad de auditoría
+            }
+        });
+
+        return redirect()->back()->with('success', "Producto '{$producto->nombre}' eliminado exitosamente de la bodega '{$bodega->nombre}'. Se dio de baja su stock y quedó registrado en auditoría.");
+    }
+
+    /**
+     * Eliminar un lote físico individual de la bodega con registro en auditoría.
+     */
+    public function eliminarLote(Request $request, Bodega $bodega, \App\Models\LoteStock $lote)
+    {
+        abort_unless($bodega->activa, 403, 'No puede eliminar lotes de una bodega inactiva.');
+        abort_if($lote->bodega_id !== $bodega->id, 404, 'El lote no pertenece a esta bodega.');
+
+        $producto = $lote->producto;
+        $cantidadAnterior = (float)$lote->cantidad_disponible;
+
+        \Illuminate\Support\Facades\DB::transaction(function () use ($lote, $bodega, $producto, $cantidadAnterior) {
+            \App\Models\HistorialAjuste::create([
+                'lote_stock_id' => $lote->id,
+                'user_id' => auth()->id(),
+                'cantidad_anterior' => $cantidadAnterior,
+                'cantidad_nueva' => 0,
+                'diferencia' => -$cantidadAnterior,
+                'motivo' => "Lote #{$lote->id} (" . ($producto ? $producto->nombre : 'Producto') . ") eliminado de bodega '{$bodega->nombre}'",
+                'es_reversion' => false,
+            ]);
+
+            $lote->cantidad_disponible = 0;
+            $lote->save();
+            $lote->delete(); // Soft delete
+        });
+
+        return redirect()->back()->with('success', "Lote #{$lote->id} eliminado exitosamente de la bodega y registrado en auditoría.");
     }
 }

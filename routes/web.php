@@ -44,6 +44,8 @@ Route::middleware('auth')->group(function () {
     Route::post('bodegas/{bodega}/producto/{producto}/ajuste-masivo', [BodegaController::class, 'ajustarMasivo'])->name('bodegas.ajuste-masivo');
     Route::post('productos/{producto}/ajuste-masivo', [BodegaController::class, 'ajustarMasivoGlobal'])->name('productos.ajuste-masivo');
     Route::post('bodegas/revertir/{ajuste}', [BodegaController::class, 'revertirAjuste'])->name('bodegas.revertir');
+    Route::delete('bodegas/{bodega}/producto/{producto}', [BodegaController::class, 'eliminarProducto'])->name('bodegas.producto.eliminar');
+    Route::delete('bodegas/{bodega}/lotes/{lote}', [BodegaController::class, 'eliminarLote'])->name('bodegas.lotes.eliminar');
     
     // Máquinas Visicooler
     Route::resource('maquinas', MaquinaController::class)->only(['index', 'show', 'store', 'destroy']);

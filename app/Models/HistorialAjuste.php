@@ -19,7 +19,7 @@ class HistorialAjuste extends Model
 
     public function lote()
     {
-        return $this->belongsTo(LoteStock::class, 'lote_stock_id');
+        return $this->belongsTo(LoteStock::class, 'lote_stock_id')->withTrashed();
     }
 
     public function usuario()
