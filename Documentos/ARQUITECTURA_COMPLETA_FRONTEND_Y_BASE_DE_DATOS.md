@@ -1,12 +1,8 @@
 # DOCUMENTACIÓN ARQUITECTÓNICA INTEGRAL: BACKEND, FRONTEND, MVC Y BASE DE DATOS
 ## Sistema ERP Dallas Manager (Control & Gestión de Inventarios FEFO, Recepciones Inteligentes y Visicoolers)
 
-> **Versión del Documento:** 2.0.0  
-> **Fecha de Elaboración:** Octubre 2026  
-> **Ubicación:** `Documentos/ARQUITECTURA_COMPLETA_FRONTEND_Y_BASE_DE_DATOS.md`  
-> **Ámbito:** Arquitectura Integral de Backend (Controladores, Modelos Eloquent, Servicios, Rutas, Migraciones), Patrón MVC en Laravel, Base de Datos y Frontend Reactivo.
 
----
+
 
 ## TABLA DE CONTENIDOS
 
@@ -316,8 +312,9 @@ class VerificarUsuarioActivo
 
         // 3. LÓGICA POSTERIOR (En el camino de salida hacia el navegador):
         // Podemos añadir cabeceras de seguridad HTTP a la respuesta
-        $response->headers->set('X-Frame-Options', 'DENY');
-        $response->headers->set('X-XSS-Protection', '1; mode=block');
+        $response->headers->set('X-Frame-Options', 'DENY'); //esto ayuda a proteger contra ataques clickjacking
+        $response->headers->set('X-XSS-Protection', '1; mode=block'); //esto ayuda a proteger contra ataques XSS
+        //xss significa cross site scripting y es un ataque que permite a un atacante inyectar código malicioso en una página web
 
         return $response;
     }

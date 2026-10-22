@@ -42,7 +42,6 @@ class BodegaController extends Controller
      */
     public function show(Bodega $bodega, Request $request)
     {
-        
         // Solo formatos/capacidades que existan en ESTA bodega (fix bug #1)
         $formatos = \App\Models\CatalogoProducto::select('formato')
                         ->whereHas('lotesStock', fn($q) => $q->where('bodega_id', $bodega->id))
@@ -59,6 +58,68 @@ class BodegaController extends Controller
                         ->distinct()
                         ->orderBy('capacidad')
                         ->pluck('capacidad');
+
+        // Filtro contextual de marcas por tipo de bodega
+        $nombreBodega = mb_strtolower($bodega->nombre);
+
+        $marcasCervezas = [
+            'Cristal' => 'Cristal',
+            'Escudo' => 'Escudo',
+            'Royal Guard' => 'Royal Guard',
+            'Heineken' => 'Heineken',
+            'Austral' => 'Austral',
+            'Kunstmann' => 'Kunstmann',
+            'Corona' => 'Corona',
+            'Budweiser' => 'Budweiser',
+            'Becker' => 'Becker',
+            'Stella Artois' => 'Stella Artois',
+            'Coors' => 'Coors',
+            'Sol' => 'Sol',
+            'Cusqueña' => 'Cusqueña',
+            'Báltica' => 'Báltica',
+        ];
+
+        $marcasCcu = [
+            'Cachantun' => 'Cachantún',
+            'Pepsi' => 'Pepsi',
+            'Bilz' => 'Bilz',
+            'Pap' => 'Pap',
+            'Kem' => 'Kem',
+            'Limonsoda' => 'Limonsoda',
+            'Crush' => 'Crush',
+            'Canada Dry' => 'Canada Dry',
+            'Gatorade' => 'Gatorade',
+            'Red Bull' => 'Red Bull',
+        ];
+
+        $marcasCoca = [
+            'Coca-Cola' => 'Coca-Cola',
+            'Fanta' => 'Fanta',
+            'Sprite' => 'Sprite',
+            'Monster' => 'Monster',
+            'Powerade' => 'Powerade',
+            'Benedictino' => 'Benedictino',
+            'Aquarius' => 'Aquarius',
+            'Andina del Valle' => 'Andina del Valle',
+        ];
+
+        if (str_contains($nombreBodega, 'cerveza') || str_contains($nombreBodega, 'beer')) {
+            $gruposMarcas = ['Cervezas' => $marcasCervezas];
+            $placeholderMarca = 'Todas las Cervezas';
+        } elseif (str_contains($nombreBodega, 'ccu')) {
+            $gruposMarcas = ['Bebidas CCU' => $marcasCcu];
+            $placeholderMarca = 'Todas las Marcas CCU';
+        } elseif (str_contains($nombreBodega, 'coca') || str_contains($nombreBodega, 'embonor') || str_contains($nombreBodega, 'andina')) {
+            $gruposMarcas = ['Coca-Cola Company' => $marcasCoca];
+            $placeholderMarca = 'Todas las Marcas Coca-Cola';
+        } else {
+            $gruposMarcas = [
+                'Cervezas' => $marcasCervezas,
+                'CCU' => $marcasCcu,
+                'Coca-Cola' => $marcasCoca,
+            ];
+            $placeholderMarca = 'Cualquier Marca/Bebida';
+        }
 
         $query = \App\Models\CatalogoProducto::query();
 
@@ -150,7 +211,7 @@ class BodegaController extends Controller
             $q->where('bodega_id', $bodega->id);
         })->with(['lote.producto', 'usuario'])->latest()->take(50)->get();
 
-        return view('bodegas.show', compact('bodega', 'productos', 'historial', 'formatos', 'capacidades'));
+        return view('bodegas.show', compact('bodega', 'productos', 'historial', 'formatos', 'capacidades', 'gruposMarcas', 'placeholderMarca'));
     }
 
     /**
@@ -191,6 +252,7 @@ class BodegaController extends Controller
     {
         $validated = $request->validate([
             'catalogo_producto_id' => 'nullable|exists:catalogo_productos,id',
+            'lote_stock_id' => 'nullable|exists:lotes_stock,id',
             'nombre' => 'required_without:catalogo_producto_id|string|max:255',
             'formato' => 'nullable|string|max:255',
             'capacidad' => 'nullable|string|max:255',
@@ -205,19 +267,44 @@ class BodegaController extends Controller
             $producto = \App\Models\CatalogoProducto::firstOrCreate(
                 [
                     'nombre' => $validated['nombre'],
-                    'formato' => $validated['formato'] ?? null,
+                    'formato' => $validated['formato'] ?? 'Display',
                     'capacidad' => $validated['capacidad'] ?? null,
                 ],
                 ['sku' => 'SKU-' . strtoupper(uniqid())] // Auto-generate SKU if needed
             );
             $productoId = $producto->id;
+        } else {
+            // Actualizar capacidad y/o formato en el catálogo si fueron editados
+            $producto = \App\Models\CatalogoProducto::find($productoId);
+            if ($producto) {
+                $cambios = [];
+                if (!empty($validated['capacidad']) && $producto->capacidad !== $validated['capacidad']) {
+                    $cambios['capacidad'] = $validated['capacidad'];
+                }
+                if (!empty($validated['formato']) && (empty($producto->formato) || $producto->formato !== $validated['formato'])) {
+                    $cambios['formato'] = $validated['formato'];
+                }
+                if (!empty($cambios)) {
+                    $producto->update($cambios);
+                }
+            }
         }
 
-        // 2. Buscar si ya existe un lote con la misma fecha de vencimiento en esta bodega
-        $loteExistente = \App\Models\LoteStock::where('bodega_id', $bodega->id)
-            ->where('catalogo_producto_id', $productoId)
-            ->where('fecha_vencimiento', $validated['fecha_vencimiento'])
-            ->first();
+        // 2. Determinar si se suma a un lote existente (por ID explícito o por fecha idéntica)
+        $loteExistente = null;
+
+        if ($request->filled('lote_stock_id')) {
+            $loteExistente = \App\Models\LoteStock::where('id', $request->lote_stock_id)
+                ->where('bodega_id', $bodega->id)
+                ->first();
+        }
+
+        if (!$loteExistente && !empty($validated['fecha_vencimiento'])) {
+            $loteExistente = \App\Models\LoteStock::where('bodega_id', $bodega->id)
+                ->where('catalogo_producto_id', $productoId)
+                ->where('fecha_vencimiento', $validated['fecha_vencimiento'])
+                ->first();
+        }
 
         if ($loteExistente) {
             // Auto-merge: Sumar al lote existente
@@ -232,11 +319,11 @@ class BodegaController extends Controller
                 'cantidad_anterior' => $cantidadAnterior,
                 'cantidad_nueva' => $loteExistente->cantidad_disponible,
                 'diferencia' => $validated['cantidad'],
-                'motivo' => 'Ingreso Rápido (Auto-Merge)',
+                'motivo' => 'Ingreso Rápido (Sumado a Lote #' . $loteExistente->id . ')',
                 'es_reversion' => false,
             ]);
 
-            return redirect()->back()->with('success', 'Stock fusionado correctamente con el lote existente.');
+            return redirect()->back()->with('success', 'Stock sumado correctamente al Lote #' . $loteExistente->id . ' (' . number_format($loteExistente->cantidad_disponible, 0) . ' UN totales).');
         } else {
             // Crear nuevo lote
             $lote = \App\Models\LoteStock::create([
@@ -254,11 +341,11 @@ class BodegaController extends Controller
                 'cantidad_anterior' => 0,
                 'cantidad_nueva' => $validated['cantidad'],
                 'diferencia' => $validated['cantidad'],
-                'motivo' => 'Ingreso Rápido en Bodega',
+                'motivo' => 'Ingreso Rápido en Bodega (Nuevo Lote #' . $lote->id . ')',
                 'es_reversion' => false,
             ]);
 
-            return redirect()->back()->with('success', 'Nuevo lote ingresado correctamente a la bodega.');
+            return redirect()->back()->with('success', 'Nuevo Lote #' . $lote->id . ' creado e ingresado con ' . number_format($validated['cantidad'], 0) . ' UN.');
         }
     }
 

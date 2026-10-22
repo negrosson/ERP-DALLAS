@@ -78,30 +78,25 @@ PROPÓSITO:
                         <input type="search" id="search" name="search" value="{{ request('search') }}" class="block w-full p-2.5 pl-10 text-sm bg-slate-800 border-slate-700 placeholder-slate-500 text-white rounded-lg focus:ring-indigo-500 focus:border-indigo-500" placeholder="Buscar por Nombre o SKU...">
                     </div>
 
-                    {{-- Selector de Marca comercial agrupada por distribuidor (CCU vs Embonor/Andina) --}}
+                    {{-- Selector de Marca comercial adaptado dinámicamente al tipo de bodega --}}
                     <div>
                         <select name="marca" id="marca" class="block w-full p-2.5 text-sm bg-slate-800 border-slate-700 text-white rounded-lg focus:ring-indigo-500 focus:border-indigo-500">
-                            <option value="">Cualquier Marca/Bebida</option>
-                            <optgroup label="CCU">
-                                <option value="Cachantun" {{ request('marca') === 'Cachantun' ? 'selected' : '' }}>Cachantún</option>
-                                <option value="Pepsi" {{ request('marca') === 'Pepsi' ? 'selected' : '' }}>Pepsi</option>
-                                <option value="Bilz" {{ request('marca') === 'Bilz' ? 'selected' : '' }}>Bilz</option>
-                                <option value="Pap" {{ request('marca') === 'Pap' ? 'selected' : '' }}>Pap</option>
-                                <option value="Kem" {{ request('marca') === 'Kem' ? 'selected' : '' }}>Kem</option>
-                                <option value="Limonsoda" {{ request('marca') === 'Limonsoda' ? 'selected' : '' }}>Limonsoda</option>
-                                <option value="Crush" {{ request('marca') === 'Crush' ? 'selected' : '' }}>Crush</option>
-                                <option value="Canada Dry" {{ request('marca') === 'Canada Dry' ? 'selected' : '' }}>Canada Dry</option>
-                                <option value="Gatorade" {{ request('marca') === 'Gatorade' ? 'selected' : '' }}>Gatorade</option>
-                            </optgroup>
-                            <optgroup label="Coca-Cola">
-                                <option value="Coca-Cola" {{ request('marca') === 'Coca-Cola' ? 'selected' : '' }}>Coca-Cola</option>
-                                <option value="Fanta" {{ request('marca') === 'Fanta' ? 'selected' : '' }}>Fanta</option>
-                                <option value="Sprite" {{ request('marca') === 'Sprite' ? 'selected' : '' }}>Sprite</option>
-                                <option value="Monster" {{ request('marca') === 'Monster' ? 'selected' : '' }}>Monster</option>
-                                <option value="Powerade" {{ request('marca') === 'Powerade' ? 'selected' : '' }}>Powerade</option>
-                                <option value="Benedictino" {{ request('marca') === 'Benedictino' ? 'selected' : '' }}>Benedictino</option>
-                                <option value="Aquarius" {{ request('marca') === 'Aquarius' ? 'selected' : '' }}>Aquarius</option>
-                            </optgroup>
+                            <option value="">{{ $placeholderMarca ?? 'Cualquier Marca/Bebida' }}</option>
+                            @if(isset($gruposMarcas))
+                                @foreach($gruposMarcas as $grupoLabel => $marcas)
+                                    @if(count($gruposMarcas) > 1)
+                                        <optgroup label="{{ $grupoLabel }}">
+                                            @foreach($marcas as $val => $lbl)
+                                                <option value="{{ $val }}" {{ request('marca') === $val ? 'selected' : '' }}>{{ $lbl }}</option>
+                                            @endforeach
+                                        </optgroup>
+                                    @else
+                                        @foreach($marcas as $val => $lbl)
+                                            <option value="{{ $val }}" {{ request('marca') === $val ? 'selected' : '' }}>{{ $lbl }}</option>
+                                        @endforeach
+                                    @endif
+                                @endforeach
+                            @endif
                         </select>
                     </div>
                     
@@ -527,7 +522,15 @@ PROPÓSITO:
             // Detalles del producto seleccionado o creado en caliente
             productoId: '',
             nombre: '',
+            sku: '',
             marca: '',
+            capacidad: '',
+            
+            // Lotes existentes y modo de lote
+            lotesExistentes: [],
+            isLoadingLotes: false,
+            modoLote: 'nuevo',
+            selectedLoteId: '',
             
             // Lógica de empaque y conversión a unidades
             formatoEmpaque: 'Display',
@@ -553,7 +556,13 @@ PROPÓSITO:
                 this.searchResults = [];
                 this.productoId = '';
                 this.nombre = '';
+                this.sku = '';
                 this.marca = '';
+                this.capacidad = '';
+                this.lotesExistentes = [];
+                this.isLoadingLotes = false;
+                this.modoLote = 'nuevo';
+                this.selectedLoteId = '';
                 this.formatoEmpaque = 'Display';
                 this.unidadesPorEmpaque = 24;
                 this.cantidadEmpaques = 1;
@@ -578,27 +587,73 @@ PROPÓSITO:
                 .finally(() => this.isLoading = false);
             },
 
-            // Selecciona un producto sugerido e infiere las unidades por empaque mediante regex
+            // Selecciona un producto sugerido, infiere formato/capacidad y carga sus lotes existentes
             selectProduct(prod) {
                 this.productoId = prod.id;
                 this.nombre = prod.nombre;
+                this.sku = prod.sku || '';
                 this.marca = prod.marca || '';
+                this.capacidad = prod.capacidad || '';
                 
                 // Intenta inferir el tamaño del pack según el formato (ej: 'Pack x24' -> 24)
                 if (prod.formato) {
+                    this.formatoEmpaque = prod.formato;
                     const match = String(prod.formato).match(/\b(?:pack\s*)?(?:x\s*)?(\d+)\b/i);
                     if (match && parseInt(match[1]) > 1) {
                         this.unidadesPorEmpaque = parseInt(match[1]);
                     }
                 }
+
+                // Cargar lotes físicos existentes de este producto en ESTA bodega
+                this.isLoadingLotes = true;
+                fetch('/catalogo/' + prod.id + '/lotes', {
+                    headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' }
+                })
+                .then(res => res.json())
+                .then(lotes => {
+                    this.lotesExistentes = Array.isArray(lotes) ? lotes.filter(l => l.bodega_id == {{ $bodega->id }}) : [];
+                    if (this.lotesExistentes.length > 0) {
+                        this.modoLote = 'existente';
+                        this.selectedLoteId = this.lotesExistentes[0].id;
+                        this.onSelectExistingLote();
+                    } else {
+                        this.modoLote = 'nuevo';
+                        this.selectedLoteId = '';
+                    }
+                })
+                .catch(() => {
+                    this.lotesExistentes = [];
+                    this.modoLote = 'nuevo';
+                })
+                .finally(() => this.isLoadingLotes = false);
+
                 this.searchQuery = '';
                 this.searchResults = [];
+            },
+
+            onSelectExistingLote() {
+                const found = this.lotesExistentes.find(l => l.id == this.selectedLoteId);
+                if (found) {
+                    this.fechaVencimiento = found.fecha_vencimiento ? found.fecha_vencimiento.substring(0, 10) : '';
+                    this.fechaElaboracion = found.fecha_elaboracion ? found.fecha_elaboracion.substring(0, 10) : '';
+                }
+            },
+
+            setVencimientoMeses(meses) {
+                const d = new Date();
+                d.setMonth(d.getMonth() + meses);
+                this.fechaVencimiento = d.toISOString().split('T')[0];
             },
 
             // Permite registrar un producto nuevo sobre la marcha si no existe en el catálogo
             useNewProduct() {
                 this.productoId = '';
                 this.nombre = this.searchQuery;
+                this.sku = '';
+                this.capacidad = '';
+                this.lotesExistentes = [];
+                this.modoLote = 'nuevo';
+                this.selectedLoteId = '';
                 this.searchQuery = '';
                 this.searchResults = [];
             },
@@ -650,7 +705,7 @@ PROPÓSITO:
                         <div class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
                             <svg class="w-5 h-5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
                         </div>
-                        <input x-ref="searchBox" type="text" x-model="searchQuery" @input.debounce.300ms="searchProducts()" @keydown.enter.prevent="useNewProduct()" placeholder="Ej: Cerveza Escudo..." 
+                        <input x-ref="searchBox" type="text" x-model="searchQuery" @input.debounce.300ms="searchProducts()" @keydown.enter.prevent="useNewProduct()" placeholder="Ej: Cerveza Escudo, Coca-Cola..." 
                             class="block w-full pl-10 p-3 bg-slate-800 border-slate-700 text-white rounded-lg focus:ring-emerald-500 focus:border-emerald-500">
                     </div>
 
@@ -666,24 +721,29 @@ PROPÓSITO:
                         <template x-for="prod in searchResults" :key="prod.id">
                             <button type="button" @click="selectProduct(prod)" class="w-full text-left p-3 border-b border-slate-700/50 hover:bg-slate-700 transition-colors flex flex-col gap-1">
                                 <span class="text-white font-medium" x-text="prod.nombre"></span>
-                                <span class="text-xs text-indigo-400 font-mono font-bold" x-show="prod.sku">SKU: <span x-text="prod.sku"></span></span>
+                                <div class="flex items-center gap-2 text-xs">
+                                    <span class="text-indigo-400 font-mono font-bold" x-show="prod.sku">SKU: <span x-text="prod.sku"></span></span>
+                                    <span class="text-slate-400" x-show="prod.capacidad" x-text="'• ' + prod.capacidad"></span>
+                                    <span class="text-slate-400" x-show="prod.formato" x-text="'• ' + prod.formato"></span>
+                                </div>
                             </button>
                         </template>
                     </div>
                 </div>
 
-                {{-- PASO 2: Configuración de Empaque, Multiplicadores y Fechas --}}
+                {{-- PASO 2: Configuración de Empaque, Multiplicadores, Capacidad y Lotes --}}
                 <div x-show="nombre" class="space-y-5" style="display: none;">
                     <form id="quick-add-form" action="{{ route('bodegas.quick-lote', $bodega) }}" method="POST">
                         @csrf
                         <input type="hidden" name="catalogo_producto_id" :value="productoId">
+                        <input type="hidden" name="lote_stock_id" :value="modoLote === 'existente' ? selectedLoteId : ''">
                         
                         {{-- Total consolidado calculado en tiempo real --}}
                         <input type="hidden" name="cantidad" :value="totalUnidades">
                         
                         {{-- Tarjeta con el producto seleccionado --}}
-                        <div class="bg-slate-800/50 p-4 rounded-xl border border-slate-700/50 mb-5 relative">
-                            <button type="button" @click="resetState(); setTimeout(() => $refs.searchBox.focus(), 100)" class="absolute top-2 right-2 text-slate-400 hover:text-rose-400 p-1">
+                        <div class="bg-slate-800/60 p-4 rounded-xl border border-slate-700/60 mb-5 relative">
+                            <button type="button" @click="resetState(); setTimeout(() => $refs.searchBox.focus(), 100)" class="absolute top-2 right-2 text-slate-400 hover:text-rose-400 p-1" title="Cambiar producto">
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
                             </button>
                             <div class="flex items-start gap-3">
@@ -691,12 +751,59 @@ PROPÓSITO:
                                     <svg class="w-6 h-6 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path></svg>
                                 </div>
                                 <div class="flex-1 min-w-0 pr-6">
-                                    <h4 class="text-white font-bold text-lg truncate mb-1">
-                                        <input type="text" name="nombre" x-model="nombre" class="bg-transparent border-0 p-0 text-white focus:ring-0 w-full" readonly>
+                                    <h4 class="text-white font-bold text-base truncate mb-1">
+                                        <input type="text" name="nombre" x-model="nombre" class="bg-transparent border-0 p-0 text-white font-bold text-base focus:ring-0 w-full" readonly>
                                     </h4>
-                                    <div class="flex items-center gap-2 mt-2">
-                                        <input type="text" name="marca" x-model="marca" placeholder="Marca (opcional)" class="bg-slate-900 border-slate-700 rounded-md text-xs text-slate-300 py-1 px-2 w-1/2">
+                                    <div class="flex items-center gap-2 mt-1">
+                                        <span class="text-[11px] font-mono text-indigo-400 font-bold bg-indigo-950/70 border border-indigo-800/50 px-2 py-0.5 rounded" x-show="sku" x-text="sku"></span>
+                                        <input type="text" name="marca" x-model="marca" placeholder="Marca (opcional)" class="bg-slate-900 border-slate-700 rounded-md text-xs text-slate-300 py-0.5 px-2 w-1/2">
                                     </div>
+                                </div>
+                            </div>
+
+                            {{-- Campo de Capacidad / Volumen --}}
+                            <div class="mt-3 pt-3 border-t border-slate-700/60">
+                                <label class="block text-xs font-semibold text-slate-300 mb-1 flex items-center justify-between">
+                                    <span class="flex items-center gap-1.5">
+                                        <svg class="w-3.5 h-3.5 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 002-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path></svg>
+                                        Capacidad / Tamaño (Volumen)
+                                    </span>
+                                    <span class="text-[10px] text-slate-400 font-normal">ej: 350 cc, 470 cc, 1.5 L</span>
+                                </label>
+                                <input type="text" name="capacidad" x-model="capacidad" list="capacidades-sugeridas"
+                                       placeholder="Ej: 350 cc, 470 cc, 1.5 L..."
+                                       class="w-full bg-slate-900 border-slate-700 text-white rounded-lg text-sm px-3 py-2 focus:ring-emerald-500 focus:border-emerald-500 font-mono">
+                                <datalist id="capacidades-sugeridas">
+                                    <option value="220 ml">
+                                    <option value="237 cc">
+                                    <option value="250 ml">
+                                    <option value="330 cc">
+                                    <option value="350 cc">
+                                    <option value="355 ml">
+                                    <option value="400 cc">
+                                    <option value="470 cc">
+                                    <option value="473 cc">
+                                    <option value="500 cc">
+                                    <option value="590 ml">
+                                    <option value="600 cc">
+                                    <option value="650 cc">
+                                    <option value="710 cc">
+                                    <option value="1 L">
+                                    <option value="1.5 L">
+                                    <option value="1.6 L">
+                                    <option value="1.75 L">
+                                    <option value="2 L">
+                                    <option value="2.5 L">
+                                    <option value="3 L">
+                                </datalist>
+                                {{-- Botones rápidos de capacidad para un solo clic --}}
+                                <div class="flex flex-wrap gap-1 mt-2">
+                                    <template x-for="c in ['350 cc', '470 cc', '500 cc', '710 cc', '1.5 L', '3 L']" :key="c">
+                                        <button type="button" @click="capacidad = c" 
+                                                :class="capacidad === c ? 'bg-indigo-600 text-white border-indigo-400 shadow-sm' : 'bg-slate-800 text-slate-400 hover:text-white border-slate-700'"
+                                                class="text-[10px] font-bold px-2 py-0.5 rounded border transition-colors"
+                                                x-text="c"></button>
+                                    </template>
                                 </div>
                             </div>
                         </div>
@@ -706,7 +813,7 @@ PROPÓSITO:
                             <div class="grid grid-cols-2 gap-4">
                                 <div>
                                     <label class="block text-xs font-medium text-slate-400 mb-1">Tipo de Empaque</label>
-                                    <select name="formato" x-model="formatoEmpaque" class="w-full bg-slate-800 border-slate-700 rounded-md text-sm text-slate-300">
+                                    <select name="formato" x-model="formatoEmpaque" class="w-full bg-slate-800 border-slate-700 rounded-lg text-sm text-slate-300">
                                         <option value="Display">Display</option>
                                         <option value="Caja">Caja</option>
                                         <option value="Pack">Pack</option>
@@ -715,7 +822,7 @@ PROPÓSITO:
                                 </div>
                                 <div x-show="formatoEmpaque !== 'Unidad'">
                                     <label class="block text-xs font-medium text-slate-400 mb-1">Unidades por <span x-text="formatoEmpaque"></span></label>
-                                    <select x-model="unidadesPorEmpaque" class="w-full bg-slate-800 border-slate-700 rounded-md text-sm text-slate-300">
+                                    <select x-model="unidadesPorEmpaque" class="w-full bg-slate-800 border-slate-700 rounded-lg text-sm text-slate-300">
                                         <option value="6">6 unidades</option>
                                         <option value="12">12 unidades</option>
                                         <option value="24">24 unidades</option>
@@ -729,23 +836,74 @@ PROPÓSITO:
                             <div class="grid grid-cols-2 gap-4">
                                 <div>
                                     <label class="block text-xs font-medium text-slate-400 mb-1">Cantidad de <span x-text="formatoEmpaque"></span>(s)</label>
-                                    <input type="number" min="1" step="1" x-model="cantidadEmpaques" class="w-full bg-slate-800 border-slate-700 rounded-md text-sm text-slate-300">
+                                    <input type="number" min="1" step="1" x-model="cantidadEmpaques" class="w-full bg-slate-800 border-slate-700 rounded-lg text-sm text-slate-300">
                                 </div>
-                                <div class="bg-indigo-900/20 border border-indigo-700/30 rounded-md p-3 flex flex-col justify-center items-center">
-                                    <span class="text-xs text-indigo-400 mb-1">Total a Ingresar</span>
+                                <div class="bg-indigo-900/20 border border-indigo-700/30 rounded-lg p-3 flex flex-col justify-center items-center">
+                                    <span class="text-xs text-indigo-400 mb-0.5">Total a Ingresar</span>
                                     <span class="text-2xl font-black text-indigo-300" x-text="totalUnidades + ' UN'"></span>
                                 </div>
                             </div>
 
-                            {{-- Fechas de elaboración y caducidad para el lote generado --}}
-                            <div class="grid grid-cols-2 gap-4">
-                                <div>
-                                    <label class="block text-xs font-medium text-slate-400 mb-1">Elaboración</label>
-                                    <input type="date" name="fecha_elaboracion" x-model="fechaElaboracion" class="w-full bg-slate-800 border-slate-700 rounded-md text-sm text-slate-300">
+                            {{-- SECCIÓN DE LOTES: Selector entre Lote Existente y Nuevo Lote --}}
+                            <div class="bg-slate-950/60 p-4 rounded-xl border border-slate-800 space-y-3">
+                                <div class="flex items-center justify-between">
+                                    <label class="text-xs font-bold uppercase tracking-wider text-slate-300 flex items-center gap-1.5">
+                                        <svg class="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+                                        Asignación de Lote
+                                    </label>
+                                    
+                                    {{-- Switch Lote Existente / Nuevo si hay lotes previos --}}
+                                    <template x-if="lotesExistentes.length > 0">
+                                        <div class="inline-flex rounded-lg bg-slate-800 p-0.5 border border-slate-700 text-[11px]">
+                                            <button type="button" @click="modoLote = 'existente'; onSelectExistingLote()" 
+                                                    :class="modoLote === 'existente' ? 'bg-emerald-600 text-white font-bold shadow' : 'text-slate-400 hover:text-white'"
+                                                    class="px-2.5 py-1 rounded-md transition-colors">
+                                                Lote Existente (<span x-text="lotesExistentes.length"></span>)
+                                            </button>
+                                            <button type="button" @click="modoLote = 'nuevo'; selectedLoteId = ''" 
+                                                    :class="modoLote === 'nuevo' ? 'bg-indigo-600 text-white font-bold shadow' : 'text-slate-400 hover:text-white'"
+                                                    class="px-2.5 py-1 rounded-md transition-colors">
+                                                + Nuevo Lote
+                                            </button>
+                                        </div>
+                                    </template>
                                 </div>
-                                <div>
-                                    <label class="block text-xs font-medium text-slate-400 mb-1">Vencimiento</label>
-                                    <input type="date" name="fecha_vencimiento" x-model="fechaVencimiento" class="w-full bg-slate-800 border-slate-700 rounded-md text-sm text-slate-300">
+
+                                {{-- Caso A: Seleccionar lote existente en esta bodega --}}
+                                <div x-show="modoLote === 'existente' && lotesExistentes.length > 0" class="space-y-2">
+                                    <label class="block text-[11px] text-slate-400">Selecciona el lote físico al que deseas sumar stock:</label>
+                                    <select x-model="selectedLoteId" @change="onSelectExistingLote()" class="w-full bg-slate-900 border-slate-700 text-white text-xs rounded-lg p-2.5 focus:ring-emerald-500">
+                                        <template x-for="l in lotesExistentes" :key="l.id">
+                                            <option :value="l.id" x-text="'Lote #' + l.id + ' — Vence: ' + (l.fecha_vencimiento ? l.fecha_vencimiento.substring(0, 10) : 'Sin Fecha') + ' (Saldo: ' + Math.round(l.cantidad_disponible) + ' UN)'"></option>
+                                        </template>
+                                    </select>
+                                    <div class="p-2.5 bg-emerald-950/30 border border-emerald-700/30 rounded-lg text-[11px] text-emerald-400 flex items-center justify-between">
+                                        <span>El stock ingresado se sumará automáticamente a este lote.</span>
+                                        <span class="font-bold">FEFO Preservado</span>
+                                    </div>
+                                </div>
+
+                                {{-- Caso B: Crear nuevo lote con sus propias fechas --}}
+                                <div x-show="modoLote === 'nuevo' || lotesExistentes.length === 0" class="space-y-3">
+                                    <div class="grid grid-cols-2 gap-3">
+                                        <div>
+                                            <label class="block text-[11px] font-medium text-slate-400 mb-1">Fecha Elaboración</label>
+                                            <input type="date" name="fecha_elaboracion" x-model="fechaElaboracion" class="w-full bg-slate-900 border-slate-700 rounded-lg text-xs text-white p-2.5 focus:ring-indigo-500">
+                                        </div>
+                                        <div>
+                                            <label class="block text-[11px] font-medium text-slate-400 mb-1">
+                                                Fecha Vencimiento <span class="text-rose-400">*</span>
+                                            </label>
+                                            <input type="date" name="fecha_vencimiento" x-model="fechaVencimiento" class="w-full bg-slate-900 border-slate-700 rounded-lg text-xs text-white p-2.5 focus:ring-emerald-500">
+                                        </div>
+                                    </div>
+                                    {{-- Atajos rápidos para fecha de vencimiento según meses estándar --}}
+                                    <div class="flex items-center gap-1.5 pt-1">
+                                        <span class="text-[10px] text-slate-500 uppercase font-semibold">Vence en:</span>
+                                        <button type="button" @click="setVencimientoMeses(3)" class="text-[10px] px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700">+3 meses</button>
+                                        <button type="button" @click="setVencimientoMeses(6)" class="text-[10px] px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700">+6 meses</button>
+                                        <button type="button" @click="setVencimientoMeses(12)" class="text-[10px] px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700">+1 año</button>
+                                    </div>
                                 </div>
                             </div>
                         </div>
