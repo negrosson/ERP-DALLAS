@@ -45,16 +45,16 @@
         </div>
     </x-slot>
 
-    {{-- Carga de la biblioteca Chart.js para renderizado de gráficos analíticos --}}
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    {{-- Carga local de Chart.js para evitar bloqueos por CDN externa --}}
+    <script src="{{ asset('js/chart.min.js') }}"></script>
 
     {{-- Contenedor Principal montado con el Componente Reactivo de Alpine: dashboardHub() --}}
     <div x-data="dashboardHub()" class="w-full space-y-6 sm:space-y-8 relative overflow-x-clip font-sans text-slate-100">
         
-        {{-- Destellos Radiales Ambientales (Efecto Cyber-Executive difuminado en fondo) --}}
-        <div class="absolute top-0 left-1/4 w-[600px] h-[400px] bg-indigo-600/10 rounded-full blur-[140px] pointer-events-none -z-0"></div>
-        <div class="absolute top-1/3 right-10 w-[500px] h-[500px] bg-cyan-600/10 rounded-full blur-[150px] pointer-events-none -z-0"></div>
-        <div class="absolute bottom-10 left-1/3 w-[600px] h-[400px] bg-rose-600/5 rounded-full blur-[160px] pointer-events-none -z-0"></div>
+        {{-- Destellos Radiales Ambientales Optimizados por GPU (Sin sobrecarga de rasterizado) --}}
+        <div class="absolute top-0 left-1/4 w-[500px] h-[300px] bg-indigo-600/10 rounded-full blur-[80px] pointer-events-none -z-0 transform-gpu will-change-transform"></div>
+        <div class="absolute top-1/3 right-10 w-[400px] h-[400px] bg-cyan-600/10 rounded-full blur-[80px] pointer-events-none -z-0 transform-gpu will-change-transform"></div>
+        <div class="absolute bottom-10 left-1/3 w-[500px] h-[300px] bg-rose-600/5 rounded-full blur-[80px] pointer-events-none -z-0 transform-gpu will-change-transform"></div>
 
         <div class="w-full space-y-6 sm:space-y-8 relative z-10">
             

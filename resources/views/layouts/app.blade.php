@@ -102,15 +102,22 @@
             </div>
         </div>
 
-        {{-- Registro del Service Worker para capacidades Progressive Web App (PWA) --}}
+        {{-- Registro del Service Worker para PWA (Sólo en Producción para no interferir con recargas y sockets de desarrollo) --}}
         <script>
             if ('serviceWorker' in navigator) {
-                window.addEventListener('load', () => {
-                    navigator.serviceWorker.register('/sw.js')
-                        .then(registration => {
-                            console.log('ServiceWorker registration successful with scope: ', registration.scope);
-                        });
-                });
+                @if(app()->isProduction())
+                    window.addEventListener('load', () => {
+                        navigator.serviceWorker.register('/sw.js');
+                    });
+                @else
+                    // En entorno local/desarrollo, limpiar service workers previos para garantizar máxima fluidez
+                    navigator.serviceWorker.getRegistrations().then(registrations => {
+                        for (let reg of registrations) reg.unregister();
+                    });
+                    if (window.caches) {
+                        caches.keys().then(keys => keys.forEach(k => caches.delete(k)));
+                    }
+                @endif
             }
         </script>
 

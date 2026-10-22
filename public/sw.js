@@ -1,23 +1,15 @@
-const CACHE_NAME = 'dallas-erp-v1';
-const ASSETS_TO_CACHE = [
-    '/',
-    '/dashboard',
-    '/recepciones/scanner',
-    '/recepciones/ocr',
-    '/manifest.json'
-];
+const CACHE_NAME = 'dallas-erp-static-v2';
 
-// Install Event: Cache essential assets
+// Solo recursos estáticos inmutables (no páginas HTML dinámicas del backend)
+const STATIC_EXTENSIONS = ['.css', '.js', '.woff2', '.woff', '.ttf', '.png', '.jpg', '.jpeg', '.svg', '.ico'];
+
 self.addEventListener('install', event => {
-    event.waitUntil(
-        caches.open(CACHE_NAME)
-            .then(cache => cache.addAll(ASSETS_TO_CACHE))
-            .then(() => self.skipWaiting())
-    );
+    // Activación inmediata sin pre-cargas pesadas en paralelo
+    self.skipWaiting();
 });
 
-// Activate Event: Cleanup old caches
 self.addEventListener('activate', event => {
+    // Limpieza de cachés antiguas
     event.waitUntil(
         caches.keys().then(cacheNames => {
             return Promise.all(
@@ -27,33 +19,35 @@ self.addEventListener('activate', event => {
                     }
                 })
             );
-        })
+        }).then(() => self.clients.claim())
     );
 });
 
-// Fetch Event: Serve from Cache first for navigation, network fallback
 self.addEventListener('fetch', event => {
-    // Only cache GET requests
+    // Solo peticiones GET
     if (event.request.method !== 'GET') return;
 
-    // API calls should always go to network
-    if (event.request.url.includes('/api/')) {
-        return;
+    const url = new URL(event.request.url);
+
+    // NUNCA interceptar páginas HTML, AJAX, búsquedas o endpoints del backend
+    const isStaticAsset = STATIC_EXTENSIONS.some(ext => url.pathname.endsWith(ext));
+    if (!isStaticAsset) {
+        return; // Pasa directo a la red sin demoras ni clones
     }
 
+    // Cache-First solo para archivos estáticos de Vite/PWA
     event.respondWith(
-        fetch(event.request).then(response => {
-            // Si la red funciona, actualizamos el caché
-            if (response && response.status === 200 && response.type === 'basic') {
-                const responseToCache = response.clone();
-                caches.open(CACHE_NAME).then(cache => {
-                    cache.put(event.request, responseToCache);
-                });
+        caches.match(event.request).then(cachedResponse => {
+            if (cachedResponse) {
+                return cachedResponse;
             }
-            return response;
-        }).catch(() => {
-            // Si no hay red, servimos desde el caché (PWA Offline Mode)
-            return caches.match(event.request);
+            return fetch(event.request).then(networkResponse => {
+                if (networkResponse && networkResponse.status === 200 && networkResponse.type === 'basic') {
+                    const responseClone = networkResponse.clone();
+                    caches.open(CACHE_NAME).then(cache => cache.put(event.request, responseClone));
+                }
+                return networkResponse;
+            });
         })
     );
 });
