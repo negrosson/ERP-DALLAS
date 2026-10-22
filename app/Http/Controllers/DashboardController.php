@@ -94,8 +94,9 @@ class DashboardController extends Controller
             ->orderBy('fecha_vencimiento', 'asc')
             ->get();
 
-        $lotesRadar = $radarQuery->map(function ($lote) {
-            $now = now()->startOfDay();
+        $now = now()->startOfDay();
+
+        $lotesRadar = $radarQuery->map(function ($lote) use ($now) {
             $dias = $lote->fecha_vencimiento ? (int)$now->diffInDays($lote->fecha_vencimiento->startOfDay(), false) : 999;
 
             $filtro = 'optimo';
@@ -109,6 +110,10 @@ class DashboardController extends Controller
                 $filtro = 'alerta60';
             } elseif ($dias <= 90) {
                 $filtro = 'alerta90';
+            } elseif ($dias <= 180) {
+                $filtro = 'alerta180';
+            } elseif ($dias <= 365) {
+                $filtro = 'alerta365';
             }
 
             return [
@@ -128,14 +133,20 @@ class DashboardController extends Controller
             ];
         });
 
+        // Próximo lote vigente a vencer (para KPI de caducidad)
+        $proximoLote = $radarQuery->filter(fn($l) => $l->fecha_vencimiento && $l->fecha_vencimiento->startOfDay()->gte($now))->first();
+        $proximaCaducidadTexto = $proximoLote ? ($now->diffInDays($proximoLote->fecha_vencimiento->startOfDay()) . ' días (' . $proximoLote->fecha_vencimiento->format('d/m/Y') . ')') : 'Sin próximas';
+
         $radarCounts = [
             'todos' => $lotesRadar->count(),
-            'vencido' => $lotesRadar->where('filtro', 'vencido')->count(),
-            'critico' => $lotesRadar->where('filtro', 'critico')->count(),
-            'alerta30' => $lotesRadar->where('filtro', 'alerta30')->count(),
-            'alerta60' => $lotesRadar->where('filtro', 'alerta60')->count(),
-            'alerta90' => $lotesRadar->where('filtro', 'alerta90')->count(),
-            'optimo' => $lotesRadar->where('filtro', 'optimo')->count(),
+            'vencido' => $lotesRadar->where('dias_restantes', '<', 0)->count(),
+            'critico' => $lotesRadar->filter(fn($l) => $l['dias_restantes'] >= 0 && $l['dias_restantes'] <= 7)->count(),
+            'mes1' => $lotesRadar->filter(fn($l) => $l['dias_restantes'] >= 0 && $l['dias_restantes'] <= 30)->count(),
+            'mes2' => $lotesRadar->filter(fn($l) => $l['dias_restantes'] >= 0 && $l['dias_restantes'] <= 60)->count(),
+            'mes3' => $lotesRadar->filter(fn($l) => $l['dias_restantes'] >= 0 && $l['dias_restantes'] <= 90)->count(),
+            'mes6' => $lotesRadar->filter(fn($l) => $l['dias_restantes'] >= 0 && $l['dias_restantes'] <= 180)->count(),
+            'mes12' => $lotesRadar->filter(fn($l) => $l['dias_restantes'] >= 0 && $l['dias_restantes'] <= 365)->count(),
+            'optimo' => $lotesRadar->where('dias_restantes', '>', 365)->count(),
         ];
 
         // Últimas Ventas
@@ -232,7 +243,8 @@ class DashboardController extends Controller
             'chartVencData',
             'bodegasDetalle',
             'lotesRadar',
-            'radarCounts'
+            'radarCounts',
+            'proximaCaducidadTexto'
         ));
     }
 }

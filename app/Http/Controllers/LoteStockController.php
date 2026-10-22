@@ -45,9 +45,23 @@ class LoteStockController extends Controller
                 } elseif ($alerta === 'medio') {
                     $q->where('fecha_vencimiento', '>', now()->addDays(14)->endOfDay())
                       ->where('fecha_vencimiento', '<=', now()->addDays(21)->endOfDay());
-                } elseif ($alerta === 'bajo') {
-                    $q->where('fecha_vencimiento', '>', now()->addDays(21)->endOfDay())
+                } elseif ($alerta === 'bajo' || $alerta === '1mes') {
+                    $q->where('fecha_vencimiento', '>=', $hoy)
                       ->where('fecha_vencimiento', '<=', now()->addDays(30)->endOfDay());
+                } elseif ($alerta === '2meses') {
+                    $q->where('fecha_vencimiento', '>=', $hoy)
+                      ->where('fecha_vencimiento', '<=', now()->addDays(60)->endOfDay());
+                } elseif ($alerta === '3meses') {
+                    $q->where('fecha_vencimiento', '>=', $hoy)
+                      ->where('fecha_vencimiento', '<=', now()->addDays(90)->endOfDay());
+                } elseif ($alerta === '6meses') {
+                    $q->where('fecha_vencimiento', '>=', $hoy)
+                      ->where('fecha_vencimiento', '<=', now()->addDays(180)->endOfDay());
+                } elseif ($alerta === '12meses') {
+                    $q->where('fecha_vencimiento', '>=', $hoy)
+                      ->where('fecha_vencimiento', '<=', now()->addDays(365)->endOfDay());
+                } elseif ($alerta === 'optimo' || $alerta === 'mas12meses') {
+                    $q->where('fecha_vencimiento', '>', now()->addDays(365)->endOfDay());
                 }
             }
         };

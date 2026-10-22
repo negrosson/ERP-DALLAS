@@ -92,26 +92,27 @@
             </div>
             @endif
 
-            {{-- FILA 1: TARJETAS KPI EJECUTIVAS (Métricas de negocio de alto impacto) --}}
+            {{-- FILA 1: TARJETAS KPI EJECUTIVAS CENTRADAS EN CANTIDADES, FECHAS Y LOTES --}}
             <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
                 
-                {{-- KPI 1: Valorización Total Monetaria del Inventario Activo --}}
+                {{-- KPI 1: Cantidades Físicas en Stock (Existencias Totales en Unidades) --}}
                 <div class="relative overflow-hidden rounded-3xl bg-slate-900/60 border border-slate-800/80 p-6 backdrop-blur-xl hover:border-indigo-500/40 transition-all duration-300 group shadow-lg">
                     <div class="absolute -top-12 -right-12 w-28 h-28 bg-indigo-500/10 rounded-full blur-2xl group-hover:bg-indigo-500/20 transition-all"></div>
                     <div class="flex items-center justify-between">
-                        <span class="text-xs font-medium text-slate-400 tracking-wider">VALORIZACIÓN TOTAL</span>
+                        <span class="text-xs font-bold text-slate-400 tracking-wider">EXISTENCIAS EN STOCK</span>
                         <div class="p-2.5 rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-400">
-                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path></svg>
                         </div>
                     </div>
                     <div class="mt-4">
-                        {{-- Monto en moneda local (CLP) formateado sin decimales --}}
-                        <div class="text-3xl lg:text-4xl font-bold tracking-tight text-white">
-                            ${{ number_format($valorTotal, 0, ',', '.') }}
+                        {{-- Unidades Físicas Totales en Stock --}}
+                        <div class="text-3xl lg:text-4xl font-black tracking-tight text-white flex items-baseline gap-2">
+                            <span>{{ number_format($totalUnidades, 0, ',', '.') }}</span>
+                            <span class="text-base font-bold text-indigo-400">UN</span>
                         </div>
                         <div class="mt-2 flex items-center justify-between text-xs text-slate-400">
-                            <span>Unidades en existencia:</span>
-                            <span class="font-semibold text-slate-200">{{ number_format($totalUnidades, 0, ',', '.') }} UN</span>
+                            <span>Valorización ref:</span>
+                            <span class="font-semibold text-slate-300">${{ number_format($valorTotal, 0, ',', '.') }} CLP</span>
                         </div>
                     </div>
                     {{-- Barra visual de proporción de stock distribuido entre bodegas --}}
@@ -130,96 +131,107 @@
                     </div>
                 </div>
 
-
-                {{-- KPI 2: Conteo Maestro de Catálogo de Productos y Estado de Abastecimiento --}}
-                <a href="{{ route('catalogo.index') }}" class="relative overflow-hidden rounded-3xl bg-slate-900/60 border border-slate-800/80 p-6 backdrop-blur-xl hover:border-cyan-500/40 transition-all duration-300 group shadow-lg block">
+                {{-- KPI 2: Lotes Activos en Rotación y Conteo de SKUs --}}
+                <a href="{{ route('lotes.index') }}" class="relative overflow-hidden rounded-3xl bg-slate-900/60 border border-slate-800/80 p-6 backdrop-blur-xl hover:border-cyan-500/40 transition-all duration-300 group shadow-lg block">
                     <div class="absolute -top-12 -right-12 w-28 h-28 bg-cyan-500/10 rounded-full blur-2xl group-hover:bg-cyan-500/20 transition-all"></div>
                     <div class="flex items-center justify-between">
-                        <span class="text-xs font-medium text-slate-400 tracking-wider">PRODUCTOS EN CATÁLOGO</span>
+                        <span class="text-xs font-bold text-slate-400 tracking-wider">LOTES ACTIVOS (STOCK)</span>
                         <div class="p-2.5 rounded-xl bg-cyan-500/10 border border-cyan-500/20 text-cyan-400">
-                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path></svg>
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 002-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path></svg>
                         </div>
                     </div>
                     <div class="mt-4">
-                        {{-- Total de SKUs registrados en el catálogo maestro --}}
-                        <div class="text-3xl lg:text-4xl font-bold tracking-tight text-white flex items-baseline gap-2">
-                            <span>{{ number_format($totalProductos, 0, ',', '.') }}</span>
-                            <span class="text-sm font-normal text-slate-400">SKU</span>
+                        {{-- Total de Lotes físicos registrados en existencia --}}
+                        <div class="text-3xl lg:text-4xl font-black tracking-tight text-white flex items-baseline gap-2">
+                            <span>{{ number_format($radarCounts['todos'], 0, ',', '.') }}</span>
+                            <span class="text-sm font-semibold text-cyan-400">Lotes</span>
                         </div>
-                        {{-- Desglose rápido: SKUs con saldo positivo vs SKUs agotados/quiebre --}}
-                        <div class="mt-3 flex items-center gap-3 text-xs">
-                            <span class="inline-flex items-center gap-1.5 text-emerald-400 font-medium">
-                                <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
-                                {{ number_format($productosConStock, 0) }} con stock
-                            </span>
-                            <span class="inline-flex items-center gap-1.5 text-slate-400 font-medium">
-                                <span class="w-2 h-2 rounded-full bg-slate-600"></span>
-                                {{ number_format($productosSinStock, 0) }} agotados
-                            </span>
+                        {{-- Desglose: SKUs con saldo positivo vs SKUs agotados --}}
+                        <div class="mt-3 flex items-center justify-between text-xs text-slate-400">
+                            <span class="text-slate-300 font-medium">{{ number_format($totalProductos, 0) }} SKUs en catálogo</span>
+                            <span class="text-emerald-400 font-semibold">{{ number_format($productosConStock, 0) }} con stock</span>
                         </div>
+                    </div>
+                    <div class="mt-4 flex items-center gap-1.5 text-xs text-cyan-400 group-hover:text-cyan-300 font-medium">
+                        <span>Ver todos los lotes</span>
+                        <svg class="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
                     </div>
                 </a>
 
-                {{-- KPI 3: Semáforo y Salud FEFO (Detección Temprana de Caducidades) --}}
+                {{-- KPI 3: Semáforo y Salud FEFO (100% Clickeable para filtrar y ver lotes) --}}
                 <div class="relative overflow-hidden rounded-3xl bg-slate-900/60 border border-slate-800/80 p-6 backdrop-blur-xl hover:border-rose-500/40 transition-all duration-300 group shadow-lg">
                     <div class="absolute -top-12 -right-12 w-28 h-28 bg-rose-500/10 rounded-full blur-2xl group-hover:bg-rose-500/20 transition-all"></div>
                     <div class="flex items-center justify-between">
-                        <span class="text-xs font-medium text-slate-400 tracking-wider">SALUD FEFO</span>
+                        <span class="text-xs font-bold text-slate-400 tracking-wider">SALUD FEFO & CADUCIDAD</span>
                         <div class="p-2.5 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-400">
                             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
                         </div>
                     </div>
                     <div class="mt-4">
-                        {{-- Indicador numérico de lotes que exigen acción inmediata (Vencidos + Críticos) --}}
+                        {{-- Indicador numérico de lotes que exigen atención inmediata --}}
                         <div class="flex items-baseline gap-2">
-                            <span class="text-3xl lg:text-4xl font-bold tracking-tight {{ ($radarCounts['vencido'] + $radarCounts['critico']) > 0 ? 'text-rose-400' : 'text-emerald-400' }}">
-                                {{ $radarCounts['vencido'] + $radarCounts['critico'] }}
+                            <span class="text-3xl lg:text-4xl font-black tracking-tight {{ ($radarCounts['vencido'] + $radarCounts['mes1']) > 0 ? 'text-rose-400' : 'text-emerald-400' }}">
+                                {{ $radarCounts['vencido'] + $radarCounts['mes1'] }}
                             </span>
-                            <span class="text-xs text-slate-400">lotes en riesgo alto</span>
+                            <span class="text-xs text-slate-400">lotes en atención</span>
                         </div>
-                        {{-- Micro-grid con desglose tripartito: Vencidos, <30 días y Óptimos (>30 días) --}}
+                        
+                        {{-- Micro-grid CLICKEABLE: Clickea para filtrar instantáneamente el Radar FEFO inferior --}}
                         <div class="mt-3 grid grid-cols-3 gap-1.5 text-center">
-                            <div class="p-1.5 rounded-lg bg-rose-500/10 border border-rose-500/20">
-                                <span class="block text-[10px] text-rose-300 font-semibold">VENCIDOS</span>
-                                <span class="text-sm font-bold text-rose-400">{{ $radarCounts['vencido'] }}</span>
-                            </div>
-                            <div class="p-1.5 rounded-lg bg-amber-500/10 border border-amber-500/20">
-                                <span class="block text-[10px] text-amber-300 font-semibold">&lt; 30 DÍAS</span>
-                                <span class="text-sm font-bold text-amber-400">{{ $radarCounts['critico'] + $radarCounts['alerta30'] }}</span>
-                            </div>
-                            <div class="p-1.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
-                                <span class="block text-[10px] text-emerald-300 font-semibold">ÓPTIMOS</span>
-                                <span class="text-sm font-bold text-emerald-400">{{ $radarCounts['optimo'] }}</span>
-                            </div>
+                            {{-- Botón Clickeable Vencidos --}}
+                            <button type="button" @click.stop="applyFilterAndScroll('vencido')" 
+                                    class="p-1.5 rounded-xl bg-rose-500/10 hover:bg-rose-500/25 border border-rose-500/30 hover:border-rose-400 cursor-pointer transition-all transform hover:scale-105 group/btn" 
+                                    title="Haz clic para ver los lotes vencidos">
+                                <span class="block text-[9px] text-rose-300 font-bold uppercase tracking-wider group-hover/btn:underline">VENCIDOS</span>
+                                <span class="text-sm font-black text-rose-400">{{ $radarCounts['vencido'] }}</span>
+                            </button>
+                            
+                            {{-- Botón Clickeable < 30 Días --}}
+                            <button type="button" @click.stop="applyFilterAndScroll('1mes')" 
+                                    class="p-1.5 rounded-xl bg-amber-500/10 hover:bg-amber-500/25 border border-amber-500/30 hover:border-amber-400 cursor-pointer transition-all transform hover:scale-105 group/btn" 
+                                    title="Haz clic para ver los lotes que vencen en menos de 30 días">
+                                <span class="block text-[9px] text-amber-300 font-bold uppercase tracking-wider group-hover/btn:underline">&lt; 30 DÍAS</span>
+                                <span class="text-sm font-black text-amber-400">{{ $radarCounts['mes1'] }}</span>
+                            </button>
+                            
+                            {{-- Botón Clickeable Óptimos --}}
+                            <button type="button" @click.stop="applyFilterAndScroll('optimo')" 
+                                    class="p-1.5 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/25 border border-emerald-500/30 hover:border-emerald-400 cursor-pointer transition-all transform hover:scale-105 group/btn" 
+                                    title="Haz clic para ver los lotes en estado óptimo">
+                                <span class="block text-[9px] text-emerald-300 font-bold uppercase tracking-wider group-hover/btn:underline">ÓPTIMOS</span>
+                                <span class="text-sm font-black text-emerald-400">{{ $radarCounts['optimo'] }}</span>
+                            </button>
                         </div>
                     </div>
                 </div>
 
-                {{-- KPI 4: Ventas Comerciales (Últimos 7 días con Deducción FEFO Automática) --}}
-                <a href="{{ route('ventas.index') }}" class="relative overflow-hidden rounded-3xl bg-slate-900/60 border border-slate-800/80 p-6 backdrop-blur-xl hover:border-emerald-500/40 transition-all duration-300 group shadow-lg block">
-                    <div class="absolute -top-12 -right-12 w-28 h-28 bg-emerald-500/10 rounded-full blur-2xl group-hover:bg-emerald-500/20 transition-all"></div>
+                {{-- KPI 4: Próxima Caducidad y Control de Fechas FEFO --}}
+                <div @click="applyFilterAndScroll('1mes')" class="cursor-pointer relative overflow-hidden rounded-3xl bg-slate-900/60 border border-slate-800/80 p-6 backdrop-blur-xl hover:border-amber-500/40 transition-all duration-300 group shadow-lg block">
+                    <div class="absolute -top-12 -right-12 w-28 h-28 bg-amber-500/10 rounded-full blur-2xl group-hover:bg-amber-500/20 transition-all"></div>
                     <div class="flex items-center justify-between">
-                        <span class="text-xs font-medium text-slate-400 tracking-wider">VENTAS (7 DÍAS)</span>
-                        <div class="p-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400">
-                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"></path></svg>
+                        <span class="text-xs font-bold text-slate-400 tracking-wider">PRÓXIMO VENCIMIENTO</span>
+                        <div class="p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-400">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
                         </div>
                     </div>
                     <div class="mt-4">
-                        {{-- Sumatoria monetaria de las ventas registradas en la última semana --}}
-                        <div class="text-3xl lg:text-4xl font-bold tracking-tight text-white">
-                            ${{ number_format($chartVentasData->sum(), 0, ',', '.') }}
+                        {{-- Cuenta regresiva o fecha del lote más próximo a caducar --}}
+                        <div class="text-2xl lg:text-3xl font-black tracking-tight text-amber-300 truncate">
+                            {{ $proximaCaducidadTexto }}
                         </div>
                         <div class="mt-2 flex items-center justify-between text-xs text-slate-400">
                             <span>Deducción FEFO:</span>
-                            <span class="font-semibold text-emerald-400">Automática</span>
+                            <span class="font-bold text-emerald-400">Automática</span>
                         </div>
                     </div>
-                    {{-- Indicador de enlace hacia el módulo de ventas --}}
-                    <div class="mt-4 flex items-center gap-1.5 text-xs text-indigo-400 group-hover:text-indigo-300">
-                        <span>Ver historial de despachos</span>
-                        <svg class="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
+                    {{-- Indicador de filtrado directo --}}
+                    <div class="mt-4 flex items-center gap-1.5 text-xs text-amber-400 group-hover:text-amber-300 font-medium">
+                        <span>Filtrar lotes próximos</span>
+                        <svg class="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
                     </div>
-                </a>
+                </div>
+
+            </div>
 
 
             </div>
@@ -342,7 +354,7 @@
 
             {{-- FILA 3: RADAR INTERACTIVO DE VENCIMIENTOS FEFO --}}
             {{-- Proporciona visualización tabular reactiva con filtros de tiempo y búsqueda instantánea --}}
-            <div class="rounded-3xl bg-slate-900/70 border border-slate-800/80 p-6 md:p-8 backdrop-blur-2xl shadow-2xl relative overflow-hidden">
+            <div id="radar-fefo-section" class="rounded-3xl bg-slate-900/70 border border-slate-800/80 p-6 md:p-8 backdrop-blur-2xl shadow-2xl relative overflow-hidden scroll-mt-6">
                 {{-- Efecto ambiental decorativo --}}
                 <div class="absolute top-0 right-0 w-96 h-96 bg-indigo-500/5 rounded-full blur-3xl pointer-events-none"></div>
 
@@ -411,13 +423,13 @@
 
                     </div>
 
-                    {{-- PÍLDORAS DE HORIZONTE DE VENCIMIENTO (Filtro por Urgencia Cronológica) --}}
+                    {{-- PÍLDORAS DE HORIZONTE DE VENCIMIENTO (Filtros: Vencidos, 1m, 2m, 3m, 6m, 12m, +12m) --}}
                     <div class="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-none">
                         
                         {{-- Botón Filtro: Todos los Lotes --}}
                         <button @click="currentFilter = 'todos'" 
                                 :class="currentFilter === 'todos' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/30 border-indigo-400' : 'bg-slate-950/60 text-slate-400 hover:text-white border-slate-800'"
-                                class="px-3.5 py-2 rounded-xl text-xs font-medium border transition-all shrink-0 flex items-center gap-1.5">
+                                class="px-3.5 py-2 rounded-xl text-xs font-medium border transition-all shrink-0 flex items-center gap-1.5 cursor-pointer">
                             <span>Todos</span>
                             <span class="px-1.5 py-0.5 rounded-md bg-white/10 text-[10px] font-bold">{{ $radarCounts['todos'] }}</span>
                         </button>
@@ -425,49 +437,56 @@
                         {{-- Botón Filtro: Lotes Ya Vencidos --}}
                         <button @click="currentFilter = 'vencido'" 
                                 :class="currentFilter === 'vencido' ? 'bg-rose-600 text-white shadow-lg shadow-rose-600/30 border-rose-400' : 'bg-slate-950/60 text-rose-400 hover:bg-rose-500/10 border-slate-800'"
-                                class="px-3.5 py-2 rounded-xl text-xs font-medium border transition-all shrink-0 flex items-center gap-1.5">
+                                class="px-3.5 py-2 rounded-xl text-xs font-medium border transition-all shrink-0 flex items-center gap-1.5 cursor-pointer">
                             <span>🚨 Vencidos</span>
                             <span class="px-1.5 py-0.5 rounded-md bg-rose-500/20 text-[10px] font-bold">{{ $radarCounts['vencido'] }}</span>
                         </button>
 
-                        {{-- Botón Filtro: Crítico (< 7 Días restantes) --}}
-                        <button @click="currentFilter = 'critico'" 
-                                :class="currentFilter === 'critico' ? 'bg-amber-600 text-white shadow-lg shadow-amber-600/30 border-amber-400' : 'bg-slate-950/60 text-amber-400 hover:bg-amber-500/10 border-slate-800'"
-                                class="px-3.5 py-2 rounded-xl text-xs font-medium border transition-all shrink-0 flex items-center gap-1.5">
-                            <span>⚡ Crítico (&lt; 7 Días)</span>
-                            <span class="px-1.5 py-0.5 rounded-md bg-amber-500/20 text-[10px] font-bold">{{ $radarCounts['critico'] }}</span>
+                        {{-- Botón Filtro: Hasta 1 Mes --}}
+                        <button @click="currentFilter = '1mes'" 
+                                :class="currentFilter === '1mes' ? 'bg-amber-600 text-white shadow-lg shadow-amber-600/30 border-amber-400' : 'bg-slate-950/60 text-amber-400 hover:bg-amber-500/10 border-slate-800'"
+                                class="px-3.5 py-2 rounded-xl text-xs font-medium border transition-all shrink-0 flex items-center gap-1.5 cursor-pointer">
+                            <span>⚡ Hasta 1 Mes</span>
+                            <span class="px-1.5 py-0.5 rounded-md bg-amber-500/20 text-[10px] font-bold">{{ $radarCounts['mes1'] }}</span>
                         </button>
 
-                        {{-- Botón Filtro: Próximos 30 Días --}}
-                        <button @click="currentFilter = 'alerta30'" 
-                                :class="currentFilter === 'alerta30' ? 'bg-yellow-600 text-white shadow-lg shadow-yellow-600/30 border-yellow-400' : 'bg-slate-950/60 text-yellow-400 hover:bg-yellow-500/10 border-slate-800'"
-                                class="px-3.5 py-2 rounded-xl text-xs font-medium border transition-all shrink-0 flex items-center gap-1.5">
-                            <span>⚠️ Próximos 30 Días</span>
-                            <span class="px-1.5 py-0.5 rounded-md bg-yellow-500/20 text-[10px] font-bold">{{ $radarCounts['alerta30'] }}</span>
+                        {{-- Botón Filtro: Hasta 2 Meses --}}
+                        <button @click="currentFilter = '2meses'" 
+                                :class="currentFilter === '2meses' ? 'bg-yellow-600 text-white shadow-lg shadow-yellow-600/30 border-yellow-400' : 'bg-slate-950/60 text-yellow-400 hover:bg-yellow-500/10 border-slate-800'"
+                                class="px-3.5 py-2 rounded-xl text-xs font-medium border transition-all shrink-0 flex items-center gap-1.5 cursor-pointer">
+                            <span>📅 Hasta 2 Meses</span>
+                            <span class="px-1.5 py-0.5 rounded-md bg-yellow-500/20 text-[10px] font-bold">{{ $radarCounts['mes2'] }}</span>
                         </button>
 
-                        {{-- Botón Filtro: Próximos 60 Días --}}
-                        <button @click="currentFilter = 'alerta60'" 
-                                :class="currentFilter === 'alerta60' ? 'bg-sky-600 text-white shadow-lg shadow-sky-600/30 border-sky-400' : 'bg-slate-950/60 text-sky-400 hover:bg-sky-500/10 border-slate-800'"
-                                class="px-3.5 py-2 rounded-xl text-xs font-medium border transition-all shrink-0 flex items-center gap-1.5">
-                            <span>📅 Próximos 60 Días</span>
-                            <span class="px-1.5 py-0.5 rounded-md bg-sky-500/20 text-[10px] font-bold">{{ $radarCounts['alerta60'] }}</span>
+                        {{-- Botón Filtro: Hasta 3 Meses --}}
+                        <button @click="currentFilter = '3meses'" 
+                                :class="currentFilter === '3meses' ? 'bg-sky-600 text-white shadow-lg shadow-sky-600/30 border-sky-400' : 'bg-slate-950/60 text-sky-400 hover:bg-sky-500/10 border-slate-800'"
+                                class="px-3.5 py-2 rounded-xl text-xs font-medium border transition-all shrink-0 flex items-center gap-1.5 cursor-pointer">
+                            <span>📆 Hasta 3 Meses</span>
+                            <span class="px-1.5 py-0.5 rounded-md bg-sky-500/20 text-[10px] font-bold">{{ $radarCounts['mes3'] }}</span>
                         </button>
 
-                        {{-- Botón Filtro: Próximos 90 Días --}}
-
-                        <button @click="currentFilter = 'alerta90'" 
-                                :class="currentFilter === 'alerta90' ? 'bg-purple-600 text-white shadow-lg shadow-purple-600/30 border-purple-400' : 'bg-slate-950/60 text-purple-400 hover:bg-purple-500/10 border-slate-800'"
-                                class="px-3.5 py-2 rounded-xl text-xs font-medium border transition-all shrink-0 flex items-center gap-1.5">
-                            <span>📆 Próximos 90 Días</span>
-                            <span class="px-1.5 py-0.5 rounded-md bg-purple-500/20 text-[10px] font-bold">{{ $radarCounts['alerta90'] }}</span>
+                        {{-- Botón Filtro: Hasta 6 Meses --}}
+                        <button @click="currentFilter = '6meses'" 
+                                :class="currentFilter === '6meses' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/30 border-indigo-400' : 'bg-slate-950/60 text-indigo-400 hover:bg-indigo-500/10 border-slate-800'"
+                                class="px-3.5 py-2 rounded-xl text-xs font-medium border transition-all shrink-0 flex items-center gap-1.5 cursor-pointer">
+                            <span>📦 Hasta 6 Meses</span>
+                            <span class="px-1.5 py-0.5 rounded-md bg-indigo-500/20 text-[10px] font-bold">{{ $radarCounts['mes6'] }}</span>
                         </button>
 
-                        {{-- Botón Filtro: Óptimos (> 90 Días) --}}
+                        {{-- Botón Filtro: Hasta 12 Meses --}}
+                        <button @click="currentFilter = '12meses'" 
+                                :class="currentFilter === '12meses' ? 'bg-purple-600 text-white shadow-lg shadow-purple-600/30 border-purple-400' : 'bg-slate-950/60 text-purple-400 hover:bg-purple-500/10 border-slate-800'"
+                                class="px-3.5 py-2 rounded-xl text-xs font-medium border transition-all shrink-0 flex items-center gap-1.5 cursor-pointer">
+                            <span>🎯 Hasta 12 Meses</span>
+                            <span class="px-1.5 py-0.5 rounded-md bg-purple-500/20 text-[10px] font-bold">{{ $radarCounts['mes12'] }}</span>
+                        </button>
+
+                        {{-- Botón Filtro: Óptimos (> 12 Meses) --}}
                         <button @click="currentFilter = 'optimo'" 
                                 :class="currentFilter === 'optimo' ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-600/30 border-emerald-400' : 'bg-slate-950/60 text-emerald-400 hover:bg-emerald-500/10 border-slate-800'"
-                                class="px-3.5 py-2 rounded-xl text-xs font-medium border transition-all shrink-0 flex items-center gap-1.5">
-                            <span>🛡️ Óptimos (&gt; 90 Días)</span>
+                                class="px-3.5 py-2 rounded-xl text-xs font-medium border transition-all shrink-0 flex items-center gap-1.5 cursor-pointer">
+                            <span>🛡️ +12 Meses (Óptimos)</span>
                             <span class="px-1.5 py-0.5 rounded-md bg-emerald-500/20 text-[10px] font-bold">{{ $radarCounts['optimo'] }}</span>
                         </button>
 
@@ -792,9 +811,23 @@
                 },
 
                 /**
+                 * Aplica un filtro de vencimiento y desplaza suavemente la vista al Radar FEFO.
+                 */
+                applyFilterAndScroll(filtro) {
+                    this.currentFilter = filtro;
+                    this.currentPage = 1;
+                    this.$nextTick(() => {
+                        const el = document.getElementById('radar-fefo-section');
+                        if (el) {
+                            el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                        }
+                    });
+                },
+
+                /**
                  * Getter computado: Retorna la lista de lotes filtrada en cascada:
                  * 1. Por bodega seleccionada
-                 * 2. Por categoría de vencimiento FEFO
+                 * 2. Por categoría de vencimiento FEFO (dias_restantes exactos)
                  * 3. Por búsqueda de texto (nombre, SKU, bodega, formato, capacidad)
                  */
                 get filteredLotes() {
@@ -806,8 +839,22 @@
                     }
 
                     // Paso 2: Filtro por Urgencia / Horizonte FEFO
-                    if (this.currentFilter !== 'todos') {
-                        list = list.filter(l => l.filtro === this.currentFilter);
+                    if (this.currentFilter === 'vencido') {
+                        list = list.filter(l => l.dias_restantes < 0);
+                    } else if (this.currentFilter === 'critico') {
+                        list = list.filter(l => l.dias_restantes >= 0 && l.dias_restantes <= 7);
+                    } else if (this.currentFilter === '1mes') {
+                        list = list.filter(l => l.dias_restantes >= 0 && l.dias_restantes <= 30);
+                    } else if (this.currentFilter === '2meses') {
+                        list = list.filter(l => l.dias_restantes >= 0 && l.dias_restantes <= 60);
+                    } else if (this.currentFilter === '3meses') {
+                        list = list.filter(l => l.dias_restantes >= 0 && l.dias_restantes <= 90);
+                    } else if (this.currentFilter === '6meses') {
+                        list = list.filter(l => l.dias_restantes >= 0 && l.dias_restantes <= 180);
+                    } else if (this.currentFilter === '12meses') {
+                        list = list.filter(l => l.dias_restantes >= 0 && l.dias_restantes <= 365);
+                    } else if (this.currentFilter === 'optimo') {
+                        list = list.filter(l => l.dias_restantes > 365);
                     }
 
                     // Paso 3: Búsqueda de texto en vivo (case insensitive)

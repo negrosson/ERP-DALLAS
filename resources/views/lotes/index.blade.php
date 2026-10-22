@@ -103,11 +103,14 @@ PROPÓSITO:
                         <x-input-label for="alerta" :value="__('Estado Vencimiento')" class="text-slate-300 font-medium mb-1 block" />
                         <select id="alerta" name="alerta" class="block w-full bg-slate-900 border-slate-700 text-slate-300 rounded-lg shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
                             <option value="">Todos los Estados</option>
-                            <option value="vencido" {{ request('alerta') == 'vencido' ? 'selected' : '' }}>Vencido (<0 días)</option>
-                            <option value="critico" {{ request('alerta') == 'critico' ? 'selected' : '' }}>Crítico (0-6 días)</option>
-                            <option value="alto" {{ request('alerta') == 'alto' ? 'selected' : '' }}>Alerta (7-14 días)</option>
-                            <option value="medio" {{ request('alerta') == 'medio' ? 'selected' : '' }}>Preventivo (15-21 días)</option>
-                            <option value="bajo" {{ request('alerta') == 'bajo' ? 'selected' : '' }}>Atención (22-30 días)</option>
+                            <option value="vencido" {{ request('alerta') == 'vencido' ? 'selected' : '' }}>🚨 Vencido (&lt; 0 días)</option>
+                            <option value="critico" {{ request('alerta') == 'critico' ? 'selected' : '' }}>⚡ Crítico (&lt; 7 días)</option>
+                            <option value="1mes" {{ in_array(request('alerta'), ['1mes', 'bajo']) ? 'selected' : '' }}>⚠️ Hasta 1 Mes (30 días)</option>
+                            <option value="2meses" {{ request('alerta') == '2meses' ? 'selected' : '' }}>📅 Hasta 2 Meses (60 días)</option>
+                            <option value="3meses" {{ request('alerta') == '3meses' ? 'selected' : '' }}>📆 Hasta 3 Meses (90 días)</option>
+                            <option value="6meses" {{ request('alerta') == '6meses' ? 'selected' : '' }}>📦 Hasta 6 Meses (180 días)</option>
+                            <option value="12meses" {{ request('alerta') == '12meses' ? 'selected' : '' }}>🎯 Hasta 12 Meses (365 días)</option>
+                            <option value="optimo" {{ in_array(request('alerta'), ['optimo', 'mas12meses']) ? 'selected' : '' }}>🛡️ +12 Meses (Óptimos)</option>
                         </select>
                     </div>
                     

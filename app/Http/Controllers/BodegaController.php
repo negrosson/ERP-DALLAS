@@ -164,8 +164,19 @@ class BodegaController extends Controller
                         ->whereNotNull('fecha_vencimiento')
                         ->where('fecha_vencimiento', '<', $hoy);
                 });
-            } elseif (in_array($request->vencimiento, ['7_dias', '14_dias', '20_dias', '30_dias'])) {
-                $dias = (int) str_replace('_dias', '', $request->vencimiento);
+            } elseif (in_array($request->vencimiento, ['7_dias', '14_dias', '20_dias', '30_dias', '1_mes', '2_meses', '3_meses', '6_meses', '12_meses'])) {
+                $diasMap = [
+                    '7_dias' => 7,
+                    '14_dias' => 14,
+                    '20_dias' => 20,
+                    '30_dias' => 30,
+                    '1_mes' => 30,
+                    '2_meses' => 60,
+                    '3_meses' => 90,
+                    '6_meses' => 180,
+                    '12_meses' => 365,
+                ];
+                $dias = $diasMap[$request->vencimiento] ?? 30;
                 $limite = now()->addDays($dias)->endOfDay();
                 $query->whereHas('lotesStock', function ($sub) use ($bodega, $hoy, $limite) {
                     $sub->where('bodega_id', $bodega->id)
@@ -174,8 +185,8 @@ class BodegaController extends Controller
                         ->where('fecha_vencimiento', '>=', $hoy)
                         ->where('fecha_vencimiento', '<=', $limite);
                 });
-            } elseif ($request->vencimiento === 'buen_estado') {
-                $limite = now()->addDays(30)->endOfDay();
+            } elseif (in_array($request->vencimiento, ['buen_estado', 'optimos', 'mas_12_meses'])) {
+                $limite = now()->addDays(365)->endOfDay();
                 $query->whereHas('lotesStock', function ($sub) use ($bodega, $limite) {
                     $sub->where('bodega_id', $bodega->id)
                         ->where('cantidad_disponible', '>', 0)
@@ -252,13 +263,20 @@ class BodegaController extends Controller
     {
         $validated = $request->validate([
             'catalogo_producto_id' => 'nullable|exists:catalogo_productos,id',
-            'lote_stock_id' => 'nullable|exists:lotes_stock,id',
             'nombre' => 'required_without:catalogo_producto_id|string|max:255',
             'formato' => 'nullable|string|max:255',
             'capacidad' => 'nullable|string|max:255',
-            'cantidad' => 'required|numeric|min:0.01',
+            // Soporte de múltiples lotes con distintas fechas
+            'lotes' => 'nullable|array',
+            'lotes.*.cantidad' => 'required_with:lotes|numeric|min:0.01',
+            'lotes.*.lote_stock_id' => 'nullable|exists:lotes_stock,id',
+            'lotes.*.fecha_elaboracion' => 'nullable|date',
+            'lotes.*.fecha_vencimiento' => 'nullable|date',
+            // Fallback para lote único
+            'cantidad' => 'nullable|numeric|min:0.01',
+            'lote_stock_id' => 'nullable|exists:lotes_stock,id',
             'fecha_elaboracion' => 'nullable|date',
-            'fecha_vencimiento' => 'nullable|date|after_or_equal:fecha_elaboracion',
+            'fecha_vencimiento' => 'nullable|date',
         ]);
 
         // 1. Encontrar o Crear Producto
@@ -290,63 +308,112 @@ class BodegaController extends Controller
             }
         }
 
-        // 2. Determinar si se suma a un lote existente (por ID explícito o por fecha idéntica)
-        $loteExistente = null;
-
-        if ($request->filled('lote_stock_id')) {
-            $loteExistente = \App\Models\LoteStock::where('id', $request->lote_stock_id)
-                ->where('bodega_id', $bodega->id)
-                ->first();
+        // 2. Normalizar la lista de lotes a procesar
+        $itemsLotes = [];
+        if ($request->has('lotes') && is_array($request->lotes) && count($request->lotes) > 0) {
+            foreach ($request->lotes as $loteData) {
+                if (!empty($loteData['cantidad']) && (float)$loteData['cantidad'] > 0) {
+                    $itemsLotes[] = [
+                        'lote_stock_id' => $loteData['lote_stock_id'] ?? null,
+                        'cantidad' => (float)$loteData['cantidad'],
+                        'fecha_elaboracion' => $loteData['fecha_elaboracion'] ?? null,
+                        'fecha_vencimiento' => $loteData['fecha_vencimiento'] ?? null,
+                    ];
+                }
+            }
         }
 
-        if (!$loteExistente && !empty($validated['fecha_vencimiento'])) {
-            $loteExistente = \App\Models\LoteStock::where('bodega_id', $bodega->id)
-                ->where('catalogo_producto_id', $productoId)
-                ->where('fecha_vencimiento', $validated['fecha_vencimiento'])
-                ->first();
+        // Si no vino array 'lotes', usar los campos individuales de lote único
+        if (empty($itemsLotes)) {
+            $cant = (float)($request->cantidad ?? 0);
+            if ($cant > 0) {
+                $itemsLotes[] = [
+                    'lote_stock_id' => $request->lote_stock_id ?? null,
+                    'cantidad' => $cant,
+                    'fecha_elaboracion' => $request->fecha_elaboracion ?? null,
+                    'fecha_vencimiento' => $request->fecha_vencimiento ?? null,
+                ];
+            }
         }
 
-        if ($loteExistente) {
-            // Auto-merge: Sumar al lote existente
-            $cantidadAnterior = $loteExistente->cantidad_disponible;
-            $loteExistente->cantidad_disponible += $validated['cantidad'];
-            $loteExistente->cantidad_inicial += $validated['cantidad'];
-            $loteExistente->save();
-
-            \App\Models\HistorialAjuste::create([
-                'lote_stock_id' => $loteExistente->id,
-                'user_id' => auth()->id(),
-                'cantidad_anterior' => $cantidadAnterior,
-                'cantidad_nueva' => $loteExistente->cantidad_disponible,
-                'diferencia' => $validated['cantidad'],
-                'motivo' => 'Ingreso Rápido (Sumado a Lote #' . $loteExistente->id . ')',
-                'es_reversion' => false,
-            ]);
-
-            return redirect()->back()->with('success', 'Stock sumado correctamente al Lote #' . $loteExistente->id . ' (' . number_format($loteExistente->cantidad_disponible, 0) . ' UN totales).');
-        } else {
-            // Crear nuevo lote
-            $lote = \App\Models\LoteStock::create([
-                'catalogo_producto_id' => $productoId,
-                'bodega_id' => $bodega->id,
-                'cantidad_inicial' => $validated['cantidad'],
-                'cantidad_disponible' => $validated['cantidad'],
-                'fecha_elaboracion' => $validated['fecha_elaboracion'] ?? null,
-                'fecha_vencimiento' => $validated['fecha_vencimiento'] ?? null,
-            ]);
-
-            \App\Models\HistorialAjuste::create([
-                'lote_stock_id' => $lote->id,
-                'user_id' => auth()->id(),
-                'cantidad_anterior' => 0,
-                'cantidad_nueva' => $validated['cantidad'],
-                'diferencia' => $validated['cantidad'],
-                'motivo' => 'Ingreso Rápido en Bodega (Nuevo Lote #' . $lote->id . ')',
-                'es_reversion' => false,
-            ]);
-
-            return redirect()->back()->with('success', 'Nuevo Lote #' . $lote->id . ' creado e ingresado con ' . number_format($validated['cantidad'], 0) . ' UN.');
+        if (empty($itemsLotes)) {
+            return redirect()->back()->with('error', 'Debes ingresar al menos un lote con cantidad mayor a 0.');
         }
+
+        // 3. Procesar cada lote (sumar a existentes o crear nuevos)
+        $totalUnidadesIngresadas = 0;
+        $lotesCreados = 0;
+        $lotesFusionados = 0;
+
+        foreach ($itemsLotes as $item) {
+            $cantidad = $item['cantidad'];
+            $totalUnidadesIngresadas += $cantidad;
+
+            // Determinar si se suma a un lote existente (por ID explícito o coincidencia de vencimiento)
+            $loteExistente = null;
+            if (!empty($item['lote_stock_id'])) {
+                $loteExistente = \App\Models\LoteStock::where('id', $item['lote_stock_id'])
+                    ->where('bodega_id', $bodega->id)
+                    ->first();
+            }
+
+            if (!$loteExistente && !empty($item['fecha_vencimiento'])) {
+                $loteExistente = \App\Models\LoteStock::where('bodega_id', $bodega->id)
+                    ->where('catalogo_producto_id', $productoId)
+                    ->where('fecha_vencimiento', $item['fecha_vencimiento'])
+                    ->first();
+            }
+
+            if ($loteExistente) {
+                // Auto-merge: Sumar al lote existente
+                $cantidadAnterior = $loteExistente->cantidad_disponible;
+                $loteExistente->cantidad_disponible += $cantidad;
+                $loteExistente->cantidad_inicial += $cantidad;
+                $loteExistente->save();
+
+                \App\Models\HistorialAjuste::create([
+                    'lote_stock_id' => $loteExistente->id,
+                    'user_id' => auth()->id(),
+                    'cantidad_anterior' => $cantidadAnterior,
+                    'cantidad_nueva' => $loteExistente->cantidad_disponible,
+                    'diferencia' => $cantidad,
+                    'motivo' => 'Ingreso Rápido (Sumado a Lote #' . $loteExistente->id . ')',
+                    'es_reversion' => false,
+                ]);
+
+                $lotesFusionados++;
+            } else {
+                // Crear nuevo lote
+                $nuevoLote = \App\Models\LoteStock::create([
+                    'catalogo_producto_id' => $productoId,
+                    'bodega_id' => $bodega->id,
+                    'cantidad_inicial' => $cantidad,
+                    'cantidad_disponible' => $cantidad,
+                    'fecha_elaboracion' => $item['fecha_elaboracion'],
+                    'fecha_vencimiento' => $item['fecha_vencimiento'],
+                ]);
+
+                \App\Models\HistorialAjuste::create([
+                    'lote_stock_id' => $nuevoLote->id,
+                    'user_id' => auth()->id(),
+                    'cantidad_anterior' => 0,
+                    'cantidad_nueva' => $cantidad,
+                    'diferencia' => $cantidad,
+                    'motivo' => 'Ingreso Rápido en Bodega (Nuevo Lote #' . $nuevoLote->id . ')',
+                    'es_reversion' => false,
+                ]);
+
+                $lotesCreados++;
+            }
+        }
+
+        $resumen = [];
+        if ($lotesCreados > 0) $resumen[] = "{$lotesCreados} nuevo(s) lote(s)";
+        if ($lotesFusionados > 0) $resumen[] = "{$lotesFusionados} lote(s) sumado(s)";
+
+        $mensaje = 'Ingreso rápido exitoso: ' . implode(' y ', $resumen) . ' con un total de ' . number_format($totalUnidadesIngresadas, 0, ',', '.') . ' UN.';
+
+        return redirect()->back()->with('success', $mensaje);
     }
 
     public function ajustarStock(Request $request, \App\Models\LoteStock $lote)

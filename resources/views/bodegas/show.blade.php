@@ -124,10 +124,13 @@ PROPÓSITO:
                     <div>
                         <select id="vencimiento" name="vencimiento" class="block w-full p-2.5 text-sm bg-slate-800 border-slate-700 text-white rounded-lg focus:ring-indigo-500 focus:border-indigo-500">
                             <option value="">Cualquier Vencimiento</option>
-                            <option value="vencidos" {{ request('vencimiento') == 'vencidos' ? 'selected' : '' }}>Vencidos (Rojo)</option>
-                            <option value="7_dias" {{ request('vencimiento') == '7_dias' ? 'selected' : '' }}>Vence < 7 días</option>
-                            <option value="14_dias" {{ request('vencimiento') == '14_dias' ? 'selected' : '' }}>Vence < 14 días</option>
-                            <option value="30_dias" {{ request('vencimiento') == '30_dias' ? 'selected' : '' }}>Vence < 30 días</option>
+                            <option value="vencidos" {{ request('vencimiento') == 'vencidos' ? 'selected' : '' }}>🚨 Vencidos (&lt; 0 días)</option>
+                            <option value="1_mes" {{ in_array(request('vencimiento'), ['1_mes', '30_dias']) ? 'selected' : '' }}>⚡ Hasta 1 Mes (30 días)</option>
+                            <option value="2_meses" {{ request('vencimiento') == '2_meses' ? 'selected' : '' }}>📅 Hasta 2 Meses (60 días)</option>
+                            <option value="3_meses" {{ request('vencimiento') == '3_meses' ? 'selected' : '' }}>📆 Hasta 3 Meses (90 días)</option>
+                            <option value="6_meses" {{ request('vencimiento') == '6_meses' ? 'selected' : '' }}>📦 Hasta 6 Meses (180 días)</option>
+                            <option value="12_meses" {{ request('vencimiento') == '12_meses' ? 'selected' : '' }}>🎯 Hasta 12 Meses (365 días)</option>
+                            <option value="optimos" {{ in_array(request('vencimiento'), ['optimos', 'buen_estado']) ? 'selected' : '' }}>🛡️ Óptimos (+12 meses)</option>
                         </select>
                     </div>
                     
@@ -525,25 +528,75 @@ PROPÓSITO:
             sku: '',
             marca: '',
             capacidad: '',
+            formatoEmpaqueDefault: 'Display',
+            unidadesPorEmpaqueDefault: 24,
             
-            // Lotes existentes y modo de lote
+            // Lotes existentes cargados desde la base de datos
             lotesExistentes: [],
             isLoadingLotes: false,
-            modoLote: 'nuevo',
-            selectedLoteId: '',
             
-            // Lógica de empaque y conversión a unidades
-            formatoEmpaque: 'Display',
-            unidadesPorEmpaque: 24,
-            cantidadEmpaques: 1,
-            fechaElaboracion: '',
-            fechaVencimiento: '',
+            // Colección dinámica de filas de lotes a ingresar (permite ingresar varios lotes con distintas fechas)
+            lotesFilas: [
+                {
+                    modo: 'nuevo',
+                    selectedLoteId: '',
+                    formato: 'Display',
+                    unidadesPorEmpaque: 24,
+                    cantidadEmpaques: 1,
+                    fechaElaboracion: '',
+                    fechaVencimiento: ''
+                }
+            ],
             
             isSubmitting: false,
 
-            // Calcula automáticamente las unidades finales a ingresar
+            // Calcula el total de unidades para una fila específica
+            getFilaUnidades(fila) {
+                const qty = parseFloat(fila.cantidadEmpaques) || 0;
+                const mult = fila.formato === 'Unidad' ? 1 : (parseInt(fila.unidadesPorEmpaque) || 1);
+                return qty * mult;
+            },
+
+            // Calcula automáticamente el total consolidado de todas las filas
             get totalUnidades() {
-                return (parseFloat(this.cantidadEmpaques) || 0) * (parseInt(this.unidadesPorEmpaque) || 0);
+                return this.lotesFilas.reduce((sum, f) => sum + this.getFilaUnidades(f), 0);
+            },
+
+            // Agrega una nueva fila de lote con diferente fecha/cantidad
+            addLoteFila() {
+                this.lotesFilas.push({
+                    modo: 'nuevo',
+                    selectedLoteId: '',
+                    formato: this.formatoEmpaqueDefault || 'Display',
+                    unidadesPorEmpaque: this.unidadesPorEmpaqueDefault || 24,
+                    cantidadEmpaques: 1,
+                    fechaElaboracion: '',
+                    fechaVencimiento: ''
+                });
+            },
+
+            // Elimina una fila de lote
+            removeLoteFila(index) {
+                if (this.lotesFilas.length > 1) {
+                    this.lotesFilas.splice(index, 1);
+                }
+            },
+
+            // Atajo rápido para establecer vencimiento en una fila
+            setFilaVencimientoMeses(index, meses) {
+                const d = new Date();
+                d.setMonth(d.getMonth() + meses);
+                this.lotesFilas[index].fechaVencimiento = d.toISOString().split('T')[0];
+            },
+
+            // Al seleccionar un lote existente en una fila
+            onSelectExistingLote(index) {
+                const fila = this.lotesFilas[index];
+                const found = this.lotesExistentes.find(l => l.id == fila.selectedLoteId);
+                if (found) {
+                    fila.fechaVencimiento = found.fecha_vencimiento ? found.fecha_vencimiento.substring(0, 10) : '';
+                    fila.fechaElaboracion = found.fecha_elaboracion ? found.fecha_elaboracion.substring(0, 10) : '';
+                }
             },
 
             closeModal() {
@@ -561,13 +614,17 @@ PROPÓSITO:
                 this.capacidad = '';
                 this.lotesExistentes = [];
                 this.isLoadingLotes = false;
-                this.modoLote = 'nuevo';
-                this.selectedLoteId = '';
-                this.formatoEmpaque = 'Display';
-                this.unidadesPorEmpaque = 24;
-                this.cantidadEmpaques = 1;
-                this.fechaElaboracion = '';
-                this.fechaVencimiento = '';
+                this.lotesFilas = [
+                    {
+                        modo: 'nuevo',
+                        selectedLoteId: '',
+                        formato: 'Display',
+                        unidadesPorEmpaque: 24,
+                        cantidadEmpaques: 1,
+                        fechaElaboracion: '',
+                        fechaVencimiento: ''
+                    }
+                ];
             },
 
             // Búsqueda en el catálogo de productos con debounce
@@ -595,14 +652,31 @@ PROPÓSITO:
                 this.marca = prod.marca || '';
                 this.capacidad = prod.capacidad || '';
                 
-                // Intenta inferir el tamaño del pack según el formato (ej: 'Pack x24' -> 24)
+                // Formato por defecto
+                let fmt = 'Display';
+                let mult = 24;
                 if (prod.formato) {
-                    this.formatoEmpaque = prod.formato;
+                    fmt = prod.formato;
                     const match = String(prod.formato).match(/\b(?:pack\s*)?(?:x\s*)?(\d+)\b/i);
                     if (match && parseInt(match[1]) > 1) {
-                        this.unidadesPorEmpaque = parseInt(match[1]);
+                        mult = parseInt(match[1]);
                     }
                 }
+                this.formatoEmpaqueDefault = fmt;
+                this.unidadesPorEmpaqueDefault = mult;
+
+                // Reinicia las filas con el formato detectado
+                this.lotesFilas = [
+                    {
+                        modo: 'nuevo',
+                        selectedLoteId: '',
+                        formato: fmt,
+                        unidadesPorEmpaque: mult,
+                        cantidadEmpaques: 1,
+                        fechaElaboracion: '',
+                        fechaVencimiento: ''
+                    }
+                ];
 
                 // Cargar lotes físicos existentes de este producto en ESTA bodega
                 this.isLoadingLotes = true;
@@ -613,36 +687,18 @@ PROPÓSITO:
                 .then(lotes => {
                     this.lotesExistentes = Array.isArray(lotes) ? lotes.filter(l => l.bodega_id == {{ $bodega->id }}) : [];
                     if (this.lotesExistentes.length > 0) {
-                        this.modoLote = 'existente';
-                        this.selectedLoteId = this.lotesExistentes[0].id;
-                        this.onSelectExistingLote();
-                    } else {
-                        this.modoLote = 'nuevo';
-                        this.selectedLoteId = '';
+                        this.lotesFilas[0].modo = 'existente';
+                        this.lotesFilas[0].selectedLoteId = this.lotesExistentes[0].id;
+                        this.onSelectExistingLote(0);
                     }
                 })
                 .catch(() => {
                     this.lotesExistentes = [];
-                    this.modoLote = 'nuevo';
                 })
                 .finally(() => this.isLoadingLotes = false);
 
                 this.searchQuery = '';
                 this.searchResults = [];
-            },
-
-            onSelectExistingLote() {
-                const found = this.lotesExistentes.find(l => l.id == this.selectedLoteId);
-                if (found) {
-                    this.fechaVencimiento = found.fecha_vencimiento ? found.fecha_vencimiento.substring(0, 10) : '';
-                    this.fechaElaboracion = found.fecha_elaboracion ? found.fecha_elaboracion.substring(0, 10) : '';
-                }
-            },
-
-            setVencimientoMeses(meses) {
-                const d = new Date();
-                d.setMonth(d.getMonth() + meses);
-                this.fechaVencimiento = d.toISOString().split('T')[0];
             },
 
             // Permite registrar un producto nuevo sobre la marcha si no existe en el catálogo
@@ -652,8 +708,17 @@ PROPÓSITO:
                 this.sku = '';
                 this.capacidad = '';
                 this.lotesExistentes = [];
-                this.modoLote = 'nuevo';
-                this.selectedLoteId = '';
+                this.lotesFilas = [
+                    {
+                        modo: 'nuevo',
+                        selectedLoteId: '',
+                        formato: 'Display',
+                        unidadesPorEmpaque: 24,
+                        cantidadEmpaques: 1,
+                        fechaElaboracion: '',
+                        fechaVencimiento: ''
+                    }
+                ];
                 this.searchQuery = '';
                 this.searchResults = [];
             },
@@ -661,12 +726,20 @@ PROPÓSITO:
             // Valida y envía el formulario de ingreso rápido
             submitForm() {
                 if(this.totalUnidades <= 0) {
-                    alert('La cantidad de unidades debe ser mayor a 0');
+                    alert('La cantidad total de unidades debe ser mayor a 0');
                     return;
                 }
                 if(!this.nombre) {
                     alert('Debes indicar un nombre de producto');
                     return;
+                }
+                // Validar que cada nuevo lote tenga fecha de vencimiento
+                for (let i = 0; i < this.lotesFilas.length; i++) {
+                    const f = this.lotesFilas[i];
+                    if (f.modo === 'nuevo' && !f.fechaVencimiento) {
+                        alert('Debes ingresar la fecha de vencimiento para el Lote #' + (i + 1));
+                        return;
+                    }
                 }
                 this.isSubmitting = true;
                 document.getElementById('quick-add-form').submit();
@@ -683,20 +756,21 @@ PROPÓSITO:
          x-transition:leave-start="opacity-100"
          x-transition:leave-end="opacity-0">
          
-         <div class="bg-slate-900 border border-slate-700 w-full max-w-lg rounded-2xl shadow-2xl flex flex-col overflow-hidden max-h-[90vh]" @click.outside="closeModal()">
+         <div class="bg-slate-900 border border-slate-700 w-full max-w-2xl rounded-2xl shadow-2xl flex flex-col overflow-hidden max-h-[90vh]" @click.outside="closeModal()">
             
             {{-- Encabezado del modal de ingreso rápido --}}
-            <div class="p-4 sm:p-6 border-b border-slate-800 flex justify-between items-center bg-slate-800/50">
+            <div class="p-4 sm:p-5 border-b border-slate-800 flex justify-between items-center bg-slate-800/50">
                 <h3 class="text-lg font-bold text-white flex items-center gap-2">
                     <svg class="w-5 h-5 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path></svg>
-                    Ingreso Rápido de Stock
+                    <span>Ingreso Rápido de Stock</span>
+                    <span class="text-xs px-2 py-0.5 rounded-full bg-slate-800 text-slate-300 font-normal border border-slate-700">{{ $bodega->nombre }}</span>
                 </h3>
                 <button @click="closeModal()" class="text-slate-400 hover:text-white transition-colors">
                     <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
                 </button>
             </div>
 
-            <div class="p-4 sm:p-6 overflow-y-auto custom-scrollbar flex-1 relative">
+            <div class="p-4 sm:p-6 overflow-y-auto custom-scrollbar flex-1 relative space-y-5">
                 
                 {{-- PASO 1: Buscar o Escribir Nombre de Producto --}}
                 <div x-show="!nombre" class="space-y-4 relative">
@@ -705,17 +779,17 @@ PROPÓSITO:
                         <div class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
                             <svg class="w-5 h-5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
                         </div>
-                        <input x-ref="searchBox" type="text" x-model="searchQuery" @input.debounce.300ms="searchProducts()" @keydown.enter.prevent="useNewProduct()" placeholder="Ej: Cerveza Escudo, Coca-Cola..." 
-                            class="block w-full pl-10 p-3 bg-slate-800 border-slate-700 text-white rounded-lg focus:ring-emerald-500 focus:border-emerald-500">
+                        <input x-ref="searchBox" type="text" x-model="searchQuery" @input.debounce.300ms="searchProducts()" @keydown.enter.prevent="useNewProduct()" placeholder="Ej: Cerveza Escudo, Cristal, Coca-Cola..." 
+                            class="block w-full pl-10 p-3 bg-slate-800 border-slate-700 text-white rounded-lg focus:ring-emerald-500 focus:border-emerald-500 text-sm">
                     </div>
 
                     {{-- Lista desplegable de autocompletado y opción de creación directa --}}
                     <div x-show="searchQuery.length > 0" class="mt-2 bg-slate-800 border border-slate-700 rounded-lg overflow-hidden max-h-60 overflow-y-auto custom-scrollbar shadow-inner">
-                        <div x-show="isLoading" class="p-4 text-center text-slate-400 text-sm">Buscando...</div>
+                        <div x-show="isLoading" class="p-4 text-center text-slate-400 text-sm">Buscando en catálogo...</div>
                         
                         <button type="button" @click="useNewProduct()" class="w-full text-left p-3 border-b border-emerald-700/50 bg-emerald-900/20 hover:bg-emerald-800/40 transition-colors flex flex-col gap-1">
                             <span class="text-emerald-400 font-bold">Crear: "<span x-text="searchQuery"></span>"</span>
-                            <span class="text-xs text-slate-400">Presiona ENTER o haz clic aquí para usar este nombre</span>
+                            <span class="text-xs text-slate-400">Presiona ENTER o haz clic aquí para dar de alta este producto</span>
                         </button>
 
                         <template x-for="prod in searchResults" :key="prod.id">
@@ -731,18 +805,14 @@ PROPÓSITO:
                     </div>
                 </div>
 
-                {{-- PASO 2: Configuración de Empaque, Multiplicadores, Capacidad y Lotes --}}
+                {{-- PASO 2: Configuración de Empaque, Capacidad y Lotes Múltiples --}}
                 <div x-show="nombre" class="space-y-5" style="display: none;">
                     <form id="quick-add-form" action="{{ route('bodegas.quick-lote', $bodega) }}" method="POST">
                         @csrf
                         <input type="hidden" name="catalogo_producto_id" :value="productoId">
-                        <input type="hidden" name="lote_stock_id" :value="modoLote === 'existente' ? selectedLoteId : ''">
-                        
-                        {{-- Total consolidado calculado en tiempo real --}}
-                        <input type="hidden" name="cantidad" :value="totalUnidades">
                         
                         {{-- Tarjeta con el producto seleccionado --}}
-                        <div class="bg-slate-800/60 p-4 rounded-xl border border-slate-700/60 mb-5 relative">
+                        <div class="bg-slate-800/60 p-4 rounded-xl border border-slate-700/60 relative">
                             <button type="button" @click="resetState(); setTimeout(() => $refs.searchBox.focus(), 100)" class="absolute top-2 right-2 text-slate-400 hover:text-rose-400 p-1" title="Cambiar producto">
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
                             </button>
@@ -756,7 +826,7 @@ PROPÓSITO:
                                     </h4>
                                     <div class="flex items-center gap-2 mt-1">
                                         <span class="text-[11px] font-mono text-indigo-400 font-bold bg-indigo-950/70 border border-indigo-800/50 px-2 py-0.5 rounded" x-show="sku" x-text="sku"></span>
-                                        <input type="text" name="marca" x-model="marca" placeholder="Marca (opcional)" class="bg-slate-900 border-slate-700 rounded-md text-xs text-slate-300 py-0.5 px-2 w-1/2">
+                                        <span class="text-xs text-slate-400">Bodega: <strong class="text-slate-200">{{ $bodega->nombre }}</strong></span>
                                     </div>
                                 </div>
                             </div>
@@ -808,102 +878,144 @@ PROPÓSITO:
                             </div>
                         </div>
 
+                        {{-- SECCIÓN DE LOTES Y FECHAS DINÁMICAS (Soporte de uno o múltiples lotes) --}}
                         <div class="space-y-4">
-                            {{-- Configuración de tipo de empaque y unidades unitarias --}}
-                            <div class="grid grid-cols-2 gap-4">
+                            <div class="flex items-center justify-between">
                                 <div>
-                                    <label class="block text-xs font-medium text-slate-400 mb-1">Tipo de Empaque</label>
-                                    <select name="formato" x-model="formatoEmpaque" class="w-full bg-slate-800 border-slate-700 rounded-lg text-sm text-slate-300">
-                                        <option value="Display">Display</option>
-                                        <option value="Caja">Caja</option>
-                                        <option value="Pack">Pack</option>
-                                        <option value="Unidad">Unidad / Suelto</option>
-                                    </select>
-                                </div>
-                                <div x-show="formatoEmpaque !== 'Unidad'">
-                                    <label class="block text-xs font-medium text-slate-400 mb-1">Unidades por <span x-text="formatoEmpaque"></span></label>
-                                    <select x-model="unidadesPorEmpaque" class="w-full bg-slate-800 border-slate-700 rounded-lg text-sm text-slate-300">
-                                        <option value="6">6 unidades</option>
-                                        <option value="12">12 unidades</option>
-                                        <option value="24">24 unidades</option>
-                                        <option value="32">32 unidades</option>
-                                        <option value="1">1 (Unidad)</option>
-                                    </select>
-                                </div>
-                            </div>
-                            
-                            {{-- Cantidad de empaques y total calculado visual --}}
-                            <div class="grid grid-cols-2 gap-4">
-                                <div>
-                                    <label class="block text-xs font-medium text-slate-400 mb-1">Cantidad de <span x-text="formatoEmpaque"></span>(s)</label>
-                                    <input type="number" min="1" step="1" x-model="cantidadEmpaques" class="w-full bg-slate-800 border-slate-700 rounded-lg text-sm text-slate-300">
-                                </div>
-                                <div class="bg-indigo-900/20 border border-indigo-700/30 rounded-lg p-3 flex flex-col justify-center items-center">
-                                    <span class="text-xs text-indigo-400 mb-0.5">Total a Ingresar</span>
-                                    <span class="text-2xl font-black text-indigo-300" x-text="totalUnidades + ' UN'"></span>
-                                </div>
-                            </div>
-
-                            {{-- SECCIÓN DE LOTES: Selector entre Lote Existente y Nuevo Lote --}}
-                            <div class="bg-slate-950/60 p-4 rounded-xl border border-slate-800 space-y-3">
-                                <div class="flex items-center justify-between">
-                                    <label class="text-xs font-bold uppercase tracking-wider text-slate-300 flex items-center gap-1.5">
+                                    <h4 class="text-xs font-bold uppercase tracking-wider text-slate-300 flex items-center gap-1.5">
                                         <svg class="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
-                                        Asignación de Lote
-                                    </label>
-                                    
-                                    {{-- Switch Lote Existente / Nuevo si hay lotes previos --}}
-                                    <template x-if="lotesExistentes.length > 0">
-                                        <div class="inline-flex rounded-lg bg-slate-800 p-0.5 border border-slate-700 text-[11px]">
-                                            <button type="button" @click="modoLote = 'existente'; onSelectExistingLote()" 
-                                                    :class="modoLote === 'existente' ? 'bg-emerald-600 text-white font-bold shadow' : 'text-slate-400 hover:text-white'"
-                                                    class="px-2.5 py-1 rounded-md transition-colors">
-                                                Lote Existente (<span x-text="lotesExistentes.length"></span>)
-                                            </button>
-                                            <button type="button" @click="modoLote = 'nuevo'; selectedLoteId = ''" 
-                                                    :class="modoLote === 'nuevo' ? 'bg-indigo-600 text-white font-bold shadow' : 'text-slate-400 hover:text-white'"
-                                                    class="px-2.5 py-1 rounded-md transition-colors">
-                                                + Nuevo Lote
-                                            </button>
-                                        </div>
-                                    </template>
+                                        Lotes y Fechas de Vencimiento
+                                    </h4>
+                                    <p class="text-[11px] text-slate-400">Si la mercadería tiene distintas fechas de vencimiento, agrega cada lote por separado.</p>
                                 </div>
+                                
+                                <span class="px-2 py-0.5 rounded text-[11px] font-bold bg-slate-800 text-emerald-400 border border-slate-700" x-text="lotesFilas.length + ' Lote(s)'"></span>
+                            </div>
 
-                                {{-- Caso A: Seleccionar lote existente en esta bodega --}}
-                                <div x-show="modoLote === 'existente' && lotesExistentes.length > 0" class="space-y-2">
-                                    <label class="block text-[11px] text-slate-400">Selecciona el lote físico al que deseas sumar stock:</label>
-                                    <select x-model="selectedLoteId" @change="onSelectExistingLote()" class="w-full bg-slate-900 border-slate-700 text-white text-xs rounded-lg p-2.5 focus:ring-emerald-500">
-                                        <template x-for="l in lotesExistentes" :key="l.id">
-                                            <option :value="l.id" x-text="'Lote #' + l.id + ' — Vence: ' + (l.fecha_vencimiento ? l.fecha_vencimiento.substring(0, 10) : 'Sin Fecha') + ' (Saldo: ' + Math.round(l.cantidad_disponible) + ' UN)'"></option>
-                                        </template>
-                                    </select>
-                                    <div class="p-2.5 bg-emerald-950/30 border border-emerald-700/30 rounded-lg text-[11px] text-emerald-400 flex items-center justify-between">
-                                        <span>El stock ingresado se sumará automáticamente a este lote.</span>
-                                        <span class="font-bold">FEFO Preservado</span>
+                            {{-- Renderizado de cada fila de lote --}}
+                            <div class="space-y-4">
+                                <template x-for="(fila, index) in lotesFilas" :key="index">
+                                    <div class="bg-slate-950/70 p-4 rounded-xl border border-slate-800 relative space-y-3 shadow-md">
+                                        
+                                        {{-- Cabecera de la fila del lote --}}
+                                        <div class="flex items-center justify-between border-b border-slate-800/80 pb-2">
+                                            <div class="flex items-center gap-2">
+                                                <span class="w-5 h-5 rounded-full bg-emerald-500/20 text-emerald-400 text-xs font-bold flex items-center justify-center border border-emerald-500/30" x-text="index + 1"></span>
+                                                <span class="text-xs font-bold text-white">Lote #<span x-text="index + 1"></span></span>
+                                                <span class="text-[11px] text-indigo-400 font-mono font-bold" x-text="'(' + getFilaUnidades(fila) + ' UN)'"></span>
+                                            </div>
+
+                                            <div class="flex items-center gap-2">
+                                                {{-- Selector Lote Existente / Nuevo si hay disponibles --}}
+                                                <template x-if="lotesExistentes.length > 0">
+                                                    <div class="inline-flex rounded-lg bg-slate-800 p-0.5 border border-slate-700 text-[10px]">
+                                                        <button type="button" @click="fila.modo = 'existente'; onSelectExistingLote(index)" 
+                                                                :class="fila.modo === 'existente' ? 'bg-emerald-600 text-white font-bold' : 'text-slate-400 hover:text-white'"
+                                                                class="px-2 py-0.5 rounded transition-colors">
+                                                            Existente (<span x-text="lotesExistentes.length"></span>)
+                                                        </button>
+                                                        <button type="button" @click="fila.modo = 'nuevo'; fila.selectedLoteId = ''" 
+                                                                :class="fila.modo === 'nuevo' ? 'bg-indigo-600 text-white font-bold' : 'text-slate-400 hover:text-white'"
+                                                                class="px-2 py-0.5 rounded transition-colors">
+                                                            + Nuevo
+                                                        </button>
+                                                    </div>
+                                                </template>
+
+                                                {{-- Botón para eliminar esta fila si hay más de 1 --}}
+                                                <button type="button" x-show="lotesFilas.length > 1" @click="removeLoteFila(index)" class="text-slate-500 hover:text-rose-400 p-1 text-xs" title="Eliminar este lote">
+                                                    ✕
+                                                </button>
+                                            </div>
+                                        </div>
+
+                                        {{-- Inputs ocultos para esta fila en el envío del formulario --}}
+                                        <input type="hidden" :name="'lotes[' + index + '][lote_stock_id]'" :value="fila.modo === 'existente' ? fila.selectedLoteId : ''">
+                                        <input type="hidden" :name="'lotes[' + index + '][cantidad]'" :value="getFilaUnidades(fila)">
+                                        <input type="hidden" :name="'lotes[' + index + '][fecha_elaboracion]'" :value="fila.fechaElaboracion">
+                                        <input type="hidden" :name="'lotes[' + index + '][fecha_vencimiento]'" :value="fila.fechaVencimiento">
+
+                                        {{-- Configuración de Empaque y Cantidad para este lote --}}
+                                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                                            <div>
+                                                <label class="block text-[10px] text-slate-400 uppercase font-semibold mb-1">Empaque</label>
+                                                <select x-model="fila.formato" class="w-full bg-slate-900 border-slate-700 text-white text-xs rounded-lg py-1.5 px-2.5">
+                                                    <option value="Display">Display</option>
+                                                    <option value="Caja">Caja</option>
+                                                    <option value="Pack">Pack</option>
+                                                    <option value="Unidad">Unidad / Suelto</option>
+                                                </select>
+                                            </div>
+
+                                            <div x-show="fila.formato !== 'Unidad'">
+                                                <label class="block text-[10px] text-slate-400 uppercase font-semibold mb-1">Unidades x Empaque</label>
+                                                <select x-model="fila.unidadesPorEmpaque" class="w-full bg-slate-900 border-slate-700 text-white text-xs rounded-lg py-1.5 px-2.5">
+                                                    <option value="6">6 unidades</option>
+                                                    <option value="12">12 unidades</option>
+                                                    <option value="24">24 unidades</option>
+                                                    <option value="32">32 unidades</option>
+                                                    <option value="1">1 (Unidad)</option>
+                                                </select>
+                                            </div>
+
+                                            <div>
+                                                <label class="block text-[10px] text-slate-400 uppercase font-semibold mb-1">Cantidad Empaques</label>
+                                                <input type="number" min="1" step="1" x-model="fila.cantidadEmpaques" class="w-full bg-slate-900 border-slate-700 text-white text-xs rounded-lg py-1.5 px-2.5">
+                                            </div>
+                                        </div>
+
+                                        {{-- Caso A: Seleccionar lote existente en esta bodega --}}
+                                        <div x-show="fila.modo === 'existente' && lotesExistentes.length > 0" class="space-y-2">
+                                            <label class="block text-[11px] text-slate-400">Sumar a lote físico existente:</label>
+                                            <select x-model="fila.selectedLoteId" @change="onSelectExistingLote(index)" class="w-full bg-slate-900 border-slate-700 text-white text-xs rounded-lg p-2 focus:ring-emerald-500">
+                                                <template x-for="l in lotesExistentes" :key="l.id">
+                                                    <option :value="l.id" x-text="'Lote #' + l.id + ' — Vence: ' + (l.fecha_vencimiento ? l.fecha_vencimiento.substring(0, 10) : 'Sin Fecha') + ' (Saldo: ' + Math.round(l.cantidad_disponible) + ' UN)'"></option>
+                                                </template>
+                                            </select>
+                                        </div>
+
+                                        {{-- Caso B: Nuevo Lote con fechas independientes --}}
+                                        <div x-show="fila.modo === 'nuevo' || lotesExistentes.length === 0" class="space-y-2">
+                                            <div class="grid grid-cols-2 gap-3">
+                                                <div>
+                                                    <label class="block text-[10px] text-slate-400 uppercase font-semibold mb-1">Fecha Elaboración</label>
+                                                    <input type="date" x-model="fila.fechaElaboracion" class="w-full bg-slate-900 border-slate-700 rounded-lg text-xs text-white p-2 focus:ring-indigo-500">
+                                                </div>
+                                                <div>
+                                                    <label class="block text-[10px] text-slate-400 uppercase font-semibold mb-1">
+                                                        Fecha Vencimiento <span class="text-rose-400">*</span>
+                                                    </label>
+                                                    <input type="date" x-model="fila.fechaVencimiento" class="w-full bg-slate-900 border-slate-700 rounded-lg text-xs text-white p-2 focus:ring-emerald-500">
+                                                </div>
+                                            </div>
+                                            {{-- Atajos rápidos de vencimiento para esta fila --}}
+                                            <div class="flex items-center gap-1.5 pt-0.5">
+                                                <span class="text-[10px] text-slate-500 font-medium">Vence en:</span>
+                                                <button type="button" @click="setFilaVencimientoMeses(index, 3)" class="text-[10px] px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700">+3m</button>
+                                                <button type="button" @click="setFilaVencimientoMeses(index, 6)" class="text-[10px] px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700">+6m</button>
+                                                <button type="button" @click="setFilaVencimientoMeses(index, 12)" class="text-[10px] px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700">+1 año</button>
+                                            </div>
+                                        </div>
+
                                     </div>
+                                </template>
+                            </div>
+
+                            {{-- Botón para agregar otro lote con distinta fecha --}}
+                            <button type="button" @click="addLoteFila()" class="w-full py-2.5 px-3 rounded-xl border border-dashed border-indigo-500/40 hover:border-indigo-400 bg-indigo-950/20 hover:bg-indigo-900/30 text-indigo-300 hover:text-white text-xs font-semibold flex items-center justify-center gap-2 transition-all">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+                                <span>+ Agregar otro lote con distinta fecha de vencimiento</span>
+                            </button>
+
+                            {{-- Resumen Total Consolidado --}}
+                            <div class="bg-gradient-to-r from-emerald-950/40 via-indigo-950/30 to-slate-900 p-4 rounded-xl border border-emerald-500/30 flex items-center justify-between">
+                                <div>
+                                    <span class="text-[11px] text-slate-400 block font-medium">Total Consolidado a Ingresar</span>
+                                    <span class="text-xs text-emerald-400 font-semibold" x-text="lotesFilas.length + ' lote(s) en esta operación'"></span>
                                 </div>
-
-                                {{-- Caso B: Crear nuevo lote con sus propias fechas --}}
-                                <div x-show="modoLote === 'nuevo' || lotesExistentes.length === 0" class="space-y-3">
-                                    <div class="grid grid-cols-2 gap-3">
-                                        <div>
-                                            <label class="block text-[11px] font-medium text-slate-400 mb-1">Fecha Elaboración</label>
-                                            <input type="date" name="fecha_elaboracion" x-model="fechaElaboracion" class="w-full bg-slate-900 border-slate-700 rounded-lg text-xs text-white p-2.5 focus:ring-indigo-500">
-                                        </div>
-                                        <div>
-                                            <label class="block text-[11px] font-medium text-slate-400 mb-1">
-                                                Fecha Vencimiento <span class="text-rose-400">*</span>
-                                            </label>
-                                            <input type="date" name="fecha_vencimiento" x-model="fechaVencimiento" class="w-full bg-slate-900 border-slate-700 rounded-lg text-xs text-white p-2.5 focus:ring-emerald-500">
-                                        </div>
-                                    </div>
-                                    {{-- Atajos rápidos para fecha de vencimiento según meses estándar --}}
-                                    <div class="flex items-center gap-1.5 pt-1">
-                                        <span class="text-[10px] text-slate-500 uppercase font-semibold">Vence en:</span>
-                                        <button type="button" @click="setVencimientoMeses(3)" class="text-[10px] px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700">+3 meses</button>
-                                        <button type="button" @click="setVencimientoMeses(6)" class="text-[10px] px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700">+6 meses</button>
-                                        <button type="button" @click="setVencimientoMeses(12)" class="text-[10px] px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700">+1 año</button>
-                                    </div>
+                                <div class="text-right">
+                                    <span class="text-2xl font-black text-white" x-text="new Intl.NumberFormat('es-CL').format(totalUnidades)"></span>
+                                    <span class="text-xs text-emerald-400 font-bold ml-1">UN</span>
                                 </div>
                             </div>
                         </div>
@@ -911,7 +1023,10 @@ PROPÓSITO:
                         {{-- Botonera inferior del modal rápido --}}
                         <div class="mt-6 flex justify-end gap-3 pt-4 border-t border-slate-800">
                             <button type="button" @click="closeModal()" class="px-4 py-2 text-sm font-medium text-slate-300 bg-slate-800 border border-slate-600 rounded-lg hover:bg-slate-700 transition-colors">Cancelar</button>
-                            <button type="button" @click="submitForm()" :disabled="isSubmitting" class="px-4 py-2 text-sm font-medium text-white bg-emerald-600 rounded-lg hover:bg-emerald-700 shadow-lg shadow-emerald-500/20 transition-colors disabled:opacity-50">Ingresar Stock</button>
+                            <button type="button" @click="submitForm()" :disabled="isSubmitting" class="px-5 py-2 text-sm font-bold text-white bg-emerald-600 rounded-lg hover:bg-emerald-500 shadow-lg shadow-emerald-500/20 transition-all disabled:opacity-50 flex items-center gap-2">
+                                <span>Ingresar Stock</span>
+                                <span class="text-xs opacity-80" x-text="'(' + totalUnidades + ' UN)'"></span>
+                            </button>
                         </div>
                     </form>
                 </div>
