@@ -119,6 +119,13 @@ class LoteStockController extends Controller
             ]);
         }
 
+        if ($request->ajax() || $request->wantsJson()) {
+            return response()->json([
+                'success' => true,
+                'message' => 'Fechas del lote actualizadas correctamente.',
+            ]);
+        }
+
         return back()->with('status', 'Fechas del lote actualizadas correctamente.');
     }
 
@@ -166,6 +173,13 @@ class LoteStockController extends Controller
             ]);
         }
 
+        if ($request->ajax() || $request->wantsJson()) {
+            return response()->json([
+                'success' => true,
+                'message' => 'Lote actualizado correctamente.',
+            ]);
+        }
+
         return back()->with('status', 'Lote actualizado correctamente.');
     }
 
@@ -180,6 +194,12 @@ class LoteStockController extends Controller
         ]);
 
         if ($lote->bodega_id == $validated['bodega_destino_id']) {
+            if ($request->ajax() || $request->wantsJson()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'El lote ya se encuentra en la bodega seleccionada.',
+                ], 422);
+            }
             return back()->with('error', 'El lote ya se encuentra en la bodega seleccionada.');
         }
 
@@ -198,6 +218,13 @@ class LoteStockController extends Controller
             'motivo' => "Transferencia: {$bodegaOrigen} -> {$bodegaDestino}. Motivo: " . $validated['motivo'],
             'es_reversion' => false,
         ]);
+
+        if ($request->ajax() || $request->wantsJson()) {
+            return response()->json([
+                'success' => true,
+                'message' => 'Lote transferido exitosamente a ' . $bodegaDestino,
+            ]);
+        }
 
         return back()->with('status', 'Lote transferido exitosamente a ' . $bodegaDestino);
     }

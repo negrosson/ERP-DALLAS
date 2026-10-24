@@ -137,7 +137,7 @@
                 this.lotes.splice(index, 1);
             },
 
-            // Valida fechas requeridas antes de enviar el formulario
+            // Valida fechas requeridas antes de enviar el formulario de manera asíncrona (AJAX)
             submitForm() {
                 // Verificar que todos los lotes con stock tengan fecha de caducidad asignada
                 for (let i = 0; i < this.lotes.length; i++) {
@@ -148,7 +148,48 @@
                 }
 
                 this.isSubmitting = true;
-                document.getElementById('ajuste-masivo-form').submit();
+                const form = document.getElementById('ajuste-masivo-form');
+                const formData = new FormData(form);
+
+                // Asegurar formato y capacidad si fueron modificados en el encabezado
+                if (this.productoFormato) {
+                    formData.set('formato', this.productoFormato);
+                }
+                if (this.productoCapacidad) {
+                    formData.set('capacidad', this.productoCapacidad);
+                }
+
+                fetch(this.getFormAction(), {
+                    method: 'POST',
+                    body: formData,
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'Accept': 'application/json'
+                    }
+                })
+                .then(res => {
+                    if (!res.ok) {
+                        return res.json().then(data => { throw new Error(data.message || 'Error al guardar el ajuste.'); });
+                    }
+                    return res.json();
+                })
+                .then(data => {
+                    this.open = false;
+                    if (window.showToast) {
+                        window.showToast(data.message || 'Inventario actualizado correctamente.', 'success');
+                    }
+                    if (window.refreshBodegaTable) {
+                        window.refreshBodegaTable();
+                    } else {
+                        window.location.reload();
+                    }
+                })
+                .catch(err => {
+                    alert(err.message || 'Error al procesar la solicitud.');
+                })
+                .finally(() => {
+                    this.isSubmitting = false;
+                });
             }
          }"
          @open-ajuste-masivo.window="openModal($event.detail.producto, $event.detail.lotes)"

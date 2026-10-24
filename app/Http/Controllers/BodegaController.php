@@ -115,7 +115,7 @@ class BodegaController extends Controller
         // Detección dinámica: Si en esta bodega existen productos con marcas adicionales, incorporarlas automáticamente
         $productosEnBodega = \App\Models\CatalogoProducto::whereHas('lotesStock', function($q) use ($bodega) {
             $q->where('bodega_id', $bodega->id)->where('cantidad_disponible', '>', 0);
-        })->get(['id', 'nombre', 'sku']);
+        })->get(['id', 'nombre', 'sku', 'formato', 'capacidad']);
 
         foreach ($productosEnBodega as $prod) {
             $marcaInferida = $prod->marca;
@@ -224,22 +224,9 @@ class BodegaController extends Controller
             return view('bodegas.partials.table', compact('productos', 'bodega'))->render();
         }
 
-        // Solo formatos/capacidades que existan en ESTA bodega para los filtros del encabezado
-        $formatos = \App\Models\CatalogoProducto::select('formato')
-                        ->whereHas('lotesStock', fn($q) => $q->where('bodega_id', $bodega->id))
-                        ->whereNotNull('formato')
-                        ->where('formato', '!=', '')
-                        ->distinct()
-                        ->orderBy('formato')
-                        ->pluck('formato');
-                        
-        $capacidades = \App\Models\CatalogoProducto::select('capacidad')
-                        ->whereHas('lotesStock', fn($q) => $q->where('bodega_id', $bodega->id))
-                        ->whereNotNull('capacidad')
-                        ->where('capacidad', '!=', '')
-                        ->distinct()
-                        ->orderBy('capacidad')
-                        ->pluck('capacidad');
+        // Formatos y capacidades obtenidos en memoria a partir de los productos con stock (0 consultas SQL adicionales)
+        $formatos = $productosEnBodega->pluck('formato')->filter(fn($f) => !empty($f))->unique()->sort()->values();
+        $capacidades = $productosEnBodega->pluck('capacidad')->filter(fn($c) => !empty($c))->unique()->sort()->values();
             
         $historial = \App\Models\HistorialAjuste::whereHas('lote', function($q) use ($bodega) {
             $q->where('bodega_id', $bodega->id);
@@ -360,6 +347,9 @@ class BodegaController extends Controller
         }
 
         if (empty($itemsLotes)) {
+            if ($request->ajax() || $request->wantsJson()) {
+                return response()->json(['success' => false, 'message' => 'Debes ingresar al menos un lote con cantidad mayor a 0.'], 422);
+            }
             return redirect()->back()->with('error', 'Debes ingresar al menos un lote con cantidad mayor a 0.');
         }
 
@@ -436,6 +426,14 @@ class BodegaController extends Controller
 
         $mensaje = 'Ingreso rápido exitoso: ' . implode(' y ', $resumen) . ' con un total de ' . number_format($totalUnidadesIngresadas, 0, ',', '.') . ' UN.';
 
+        if ($request->ajax() || $request->wantsJson()) {
+            return response()->json([
+                'success' => true,
+                'message' => $mensaje,
+                'total_unidades' => $totalUnidadesIngresadas,
+            ]);
+        }
+
         return redirect()->back()->with('success', $mensaje);
     }
 
@@ -461,6 +459,13 @@ class BodegaController extends Controller
                 'diferencia' => $diferencia,
                 'motivo' => $validated['motivo'],
                 'es_reversion' => false,
+            ]);
+        }
+
+        if ($request->ajax() || $request->wantsJson()) {
+            return response()->json([
+                'success' => true,
+                'message' => 'Stock ajustado correctamente.',
             ]);
         }
 
@@ -583,12 +588,22 @@ class BodegaController extends Controller
             }
         }
 
+        if ($request->ajax() || $request->wantsJson()) {
+            return response()->json([
+                'success' => true,
+                'message' => 'Inventario ajustado correctamente.',
+            ]);
+        }
+
         return redirect()->back()->with('success', 'Inventario ajustado correctamente.');
     }
 
     public function revertirAjuste(Request $request, \App\Models\HistorialAjuste $ajuste)
     {
         if ($ajuste->es_reversion || $ajuste->reversiones()->exists()) {
+            if ($request->ajax() || $request->wantsJson()) {
+                return response()->json(['success' => false, 'message' => 'Este ajuste ya fue revertido o es una reversión.'], 422);
+            }
             return redirect()->back()->with('error', 'Este ajuste ya fue revertido o es una reversión.');
         }
         
@@ -615,6 +630,13 @@ class BodegaController extends Controller
             'reversion_de_id' => $ajuste->id,
         ]);
 
+        if ($request->ajax() || $request->wantsJson()) {
+            return response()->json([
+                'success' => true,
+                'message' => 'Ajuste revertido correctamente.',
+            ]);
+        }
+
         return redirect()->back()->with('success', 'Ajuste revertido correctamente.');
     }
 
@@ -630,6 +652,9 @@ class BodegaController extends Controller
             ->get();
 
         if ($lotes->isEmpty()) {
+            if ($request->ajax() || $request->wantsJson()) {
+                return response()->json(['success' => false, 'message' => 'El producto no posee existencias ni lotes en esta bodega.'], 404);
+            }
             return redirect()->back()->with('error', 'El producto no posee existencias ni lotes en esta bodega.');
         }
 
@@ -653,7 +678,15 @@ class BodegaController extends Controller
             }
         });
 
-        return redirect()->back()->with('success', "Producto '{$producto->nombre}' eliminado exitosamente de la bodega '{$bodega->nombre}'. Se dio de baja su stock y quedó registrado en auditoría.");
+        $msg = "Producto '{$producto->nombre}' eliminado exitosamente de la bodega '{$bodega->nombre}'. Se dio de baja su stock y quedó registrado en auditoría.";
+        if ($request->ajax() || $request->wantsJson()) {
+            return response()->json([
+                'success' => true,
+                'message' => $msg,
+            ]);
+        }
+
+        return redirect()->back()->with('success', $msg);
     }
 
     /**
@@ -683,6 +716,14 @@ class BodegaController extends Controller
             $lote->delete(); // Soft delete
         });
 
-        return redirect()->back()->with('success', "Lote #{$lote->id} eliminado exitosamente de la bodega y registrado en auditoría.");
+        $msg = "Lote #{$lote->id} eliminado exitosamente de la bodega y registrado en auditoría.";
+        if ($request->ajax() || $request->wantsJson()) {
+            return response()->json([
+                'success' => true,
+                'message' => $msg,
+            ]);
+        }
+
+        return redirect()->back()->with('success', $msg);
     }
 }

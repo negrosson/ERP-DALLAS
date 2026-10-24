@@ -36,6 +36,9 @@ PROPÓSITO:
 
     {{-- Contenedor del contenido principal --}}
     <div class="py-4">
+        {{-- Contenedor flotante para notificaciones Toast ultra-rápidas en móvil y desktop --}}
+        <div id="toast-container" class="fixed top-4 left-1/2 -translate-x-1/2 sm:left-auto sm:right-6 sm:translate-x-0 z-[150] flex flex-col gap-2 pointer-events-none w-11/12 max-w-sm"></div>
+
         <div class="mx-auto w-full px-4 sm:px-6 lg:px-8">
             
             {{-- Barra superior de estado de la bodega y botón de acción rápida --}}
@@ -504,6 +507,62 @@ PROPÓSITO:
                     }
                 });
                 
+                // Exponer actualización asíncrona de tabla sin recarga de página
+                window.refreshBodegaTable = () => fetchProductos();
+
+                // Sistema de notificaciones Toast flotantes y ultra-rápidas para móvil y desktop
+                window.showToast = (message, type = 'success') => {
+                    const container = document.getElementById('toast-container');
+                    if (!container) return;
+                    const isSuccess = type === 'success';
+                    const toast = document.createElement('div');
+                    toast.className = `transform transition-all duration-300 -translate-y-2 opacity-0 max-w-sm w-full bg-slate-900/95 border ${isSuccess ? 'border-emerald-500/70 text-emerald-300' : 'border-rose-500/70 text-rose-300'} shadow-2xl rounded-xl p-3.5 text-sm flex items-center gap-3 pointer-events-auto backdrop-blur-md`;
+                    toast.innerHTML = `
+                        <div class="w-7 h-7 rounded-lg ${isSuccess ? 'bg-emerald-500/20 text-emerald-400' : 'bg-rose-500/20 text-rose-400'} flex items-center justify-center shrink-0">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                ${isSuccess ? '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"></path>' : '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"></path>'}
+                            </svg>
+                        </div>
+                        <span class="font-medium text-xs sm:text-sm flex-1 leading-tight">${message}</span>
+                    `;
+                    container.appendChild(toast);
+                    requestAnimationFrame(() => {
+                        toast.classList.remove('-translate-y-2', 'opacity-0');
+                        toast.classList.add('translate-y-0', 'opacity-100');
+                    });
+                    setTimeout(() => {
+                        toast.classList.remove('translate-y-0', 'opacity-100');
+                        toast.classList.add('-translate-y-2', 'opacity-0');
+                        setTimeout(() => toast.remove(), 300);
+                    }, 3500);
+                };
+
+                // Interceptar eliminaciones y reversiones para ejecutarlas vía AJAX instantáneo
+                document.addEventListener('submit', function(e) {
+                    const form = e.target;
+                    if (form && form.action && (form.action.includes('/eliminar') || form.action.includes('/revertir'))) {
+                        e.preventDefault();
+                        const formData = new FormData(form);
+                        fetch(form.action, {
+                            method: 'POST',
+                            body: formData,
+                            headers: {
+                                'X-Requested-With': 'XMLHttpRequest',
+                                'Accept': 'application/json'
+                            }
+                        })
+                        .then(res => res.json())
+                        .then(data => {
+                            window.showToast(data.message || 'Operación completada con éxito', data.success ? 'success' : 'error');
+                            window.refreshBodegaTable();
+                        })
+                        .catch(() => {
+                            // Fallback clásico
+                            form.submit();
+                        });
+                    }
+                });
+
                 // Función global para limpiar filtros y volver al listado completo
                 window.resetFilters = () => {
                     searchInput.value = '';
@@ -712,7 +771,7 @@ PROPÓSITO:
             // Permite registrar un producto nuevo sobre la marcha si no existe en el catálogo
             useNewProduct() {
                 this.productoId = '';
-                this.nombre = this.searchQuery;
+                this.nombre = (this.searchQuery || '').trim().toUpperCase();
                 this.sku = '';
                 this.marca = '';
                 this.formato = 'Botella';
@@ -733,7 +792,7 @@ PROPÓSITO:
                 this.searchResults = [];
             },
 
-            // Valida y envía el formulario de ingreso rápido
+            // Valida y envía el formulario de ingreso rápido mediante AJAX ultra-rápido
             submitForm() {
                 if(this.totalUnidades <= 0) {
                     alert('La cantidad total de unidades debe ser mayor a 0');
@@ -752,7 +811,38 @@ PROPÓSITO:
                     }
                 }
                 this.isSubmitting = true;
-                document.getElementById('quick-add-form').submit();
+                const form = document.getElementById('quick-add-form');
+                const formData = new FormData(form);
+
+                fetch(form.action, {
+                    method: 'POST',
+                    body: formData,
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'Accept': 'application/json'
+                    }
+                })
+                .then(res => {
+                    if (!res.ok) {
+                        return res.json().then(err => { throw new Error(err.message || 'Error al procesar ingreso'); });
+                    }
+                    return res.json();
+                })
+                .then(data => {
+                    this.closeModal();
+                    if (window.showToast) {
+                        window.showToast(data.message || 'Ingreso de stock guardado correctamente', 'success');
+                    }
+                    if (window.refreshBodegaTable) {
+                        window.refreshBodegaTable();
+                    }
+                })
+                .catch(err => {
+                    alert(err.message || 'Ocurrió un error al guardar el ingreso');
+                })
+                .finally(() => {
+                    this.isSubmitting = false;
+                });
             }
          }"
          @open-quick-add.window="open = true; setTimeout(() => $refs.searchBox.focus(), 100)"

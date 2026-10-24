@@ -99,7 +99,7 @@ class EliminarProductoBodegaTest extends TestCase
         // Y la auditoría debe mostrar el registro con el producto y usuario
         $historial = HistorialAjuste::where('lote_stock_id', $lote1->id)->first();
         $this->assertNotNull($historial->lote);
-        $this->assertEquals('Bebida Refrescante 1.5L', $historial->lote->producto->nombre);
+        $this->assertEquals('BEBIDA REFRESCANTE 1.5L', $historial->lote->producto->nombre);
     }
 
     public function test_eliminar_lote_individual_de_bodega_registra_auditoria(): void

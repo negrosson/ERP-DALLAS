@@ -54,6 +54,12 @@ class CatalogoProducto extends Model
         return $this->hasMany(LoteStock::class);
     }
 
+    // ── Mutators ────────────────────────────────────────────────
+    public function setNombreAttribute($value)
+    {
+        $this->attributes['nombre'] = mb_strtoupper(trim($value), 'UTF-8');
+    }
+
     // ── Scopes ──────────────────────────────────────────────────
 
     public function scopeActivos($query)

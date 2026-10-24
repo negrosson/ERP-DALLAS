@@ -275,7 +275,7 @@ class ConciliacionFechasTest extends TestCase
         // Verificar en catalogo_productos
         $this->assertDatabaseHas('catalogo_productos', [
             'sku' => 'COC-VID-237ML-TEST',
-            'nombre' => 'Coca-Cola Original Vidrio 237 cc',
+            'nombre' => 'COCA-COLA ORIGINAL VIDRIO 237 CC',
             'formato' => 'Botella Vidrio',
             'capacidad' => '237 cc',
             'activo' => 1,
@@ -285,7 +285,7 @@ class ConciliacionFechasTest extends TestCase
         $this->assertDatabaseHas('mapeo_codigos', [
             'proveedor_id' => $this->proveedor->id,
             'codigo_proveedor' => '0166',
-            'descripcion_proveedor' => 'Coca-Cola Original Vidrio 237 cc',
+            'descripcion_proveedor' => 'COCA-COLA ORIGINAL VIDRIO 237 CC',
         ]);
     }
 
