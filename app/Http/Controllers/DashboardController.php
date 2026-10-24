@@ -17,16 +17,19 @@ class DashboardController extends Controller
         $productosConStock = CatalogoProducto::whereHas('lotesStock', fn($q) => $q->where('cantidad_disponible', '>', 0))->count();
         $productosSinStock = $totalProductos - $productosConStock;
         
-        // Total de unidades en stock
+        // Total de unidades en stock (excluyendo soft-deleted)
         $totalUnidades = \Illuminate\Support\Facades\DB::table('lotes_stock')
             ->where('cantidad_disponible', '>', 0)
+            ->whereNull('deleted_at')
             ->sum('cantidad_disponible');
 
-        // Valorización total con JOIN directo — sin N+1
+        // Valorización total con LEFT JOIN para incluir lotes de Ingreso Rápido y fallback a catalogo_productos.precio_compra_ref
         $valorTotal = \Illuminate\Support\Facades\DB::table('lotes_stock')
-            ->join('recepcion_detalles', 'lotes_stock.recepcion_detalle_id', '=', 'recepcion_detalles.id')
+            ->join('catalogo_productos', 'lotes_stock.catalogo_producto_id', '=', 'catalogo_productos.id')
+            ->leftJoin('recepcion_detalles', 'lotes_stock.recepcion_detalle_id', '=', 'recepcion_detalles.id')
             ->where('lotes_stock.cantidad_disponible', '>', 0)
-            ->sum(\Illuminate\Support\Facades\DB::raw('recepcion_detalles.precio_unitario * lotes_stock.cantidad_disponible'));
+            ->whereNull('lotes_stock.deleted_at')
+            ->sum(\Illuminate\Support\Facades\DB::raw('COALESCE(recepcion_detalles.precio_unitario, catalogo_productos.precio_compra_ref, 0) * lotes_stock.cantidad_disponible'));
 
         $now = now()->startOfDay();
 
@@ -59,13 +62,14 @@ class DashboardController extends Controller
             'bajo'    => $radarQuery->filter(fn($l) => $l->fecha_vencimiento && $l->fecha_vencimiento->startOfDay()->gt($d21) && $l->fecha_vencimiento->startOfDay()->lte($d30))->count(),
         ];
 
-        // 4. Valorización por bodega consolidada en 1 sola consulta SQL agrupada
+        // 4. Valorización por bodega consolidada con fallback a catalogo_productos.precio_compra_ref
         $valoresPorBodega = \Illuminate\Support\Facades\DB::table('lotes_stock')
-            ->join('recepcion_detalles', 'lotes_stock.recepcion_detalle_id', '=', 'recepcion_detalles.id')
+            ->join('catalogo_productos', 'lotes_stock.catalogo_producto_id', '=', 'catalogo_productos.id')
+            ->leftJoin('recepcion_detalles', 'lotes_stock.recepcion_detalle_id', '=', 'recepcion_detalles.id')
             ->where('lotes_stock.cantidad_disponible', '>', 0)
             ->whereNull('lotes_stock.deleted_at')
             ->groupBy('lotes_stock.bodega_id')
-            ->select('lotes_stock.bodega_id', \Illuminate\Support\Facades\DB::raw('SUM(recepcion_detalles.precio_unitario * lotes_stock.cantidad_disponible) as total_valor'))
+            ->select('lotes_stock.bodega_id', \Illuminate\Support\Facades\DB::raw('SUM(COALESCE(recepcion_detalles.precio_unitario, catalogo_productos.precio_compra_ref, 0) * lotes_stock.cantidad_disponible) as total_valor'))
             ->pluck('total_valor', 'bodega_id');
 
         // Agrupación en memoria de lotes por bodega

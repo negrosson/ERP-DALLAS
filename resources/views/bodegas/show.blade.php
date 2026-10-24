@@ -664,12 +664,79 @@ PROPÓSITO:
                 }
             },
 
+            showCamera: false,
+            scannerInstance: null,
+
+            toggleCameraScanner() {
+                if (this.showCamera) {
+                    this.stopCameraScanner();
+                } else {
+                    this.startCameraScanner();
+                }
+            },
+
+            startCameraScanner() {
+                this.showCamera = true;
+                const initScanner = () => {
+                    this.$nextTick(() => {
+                        try {
+                            if (!this.scannerInstance) {
+                                this.scannerInstance = new Html5Qrcode('quick-add-reader');
+                            }
+                            this.scannerInstance.start(
+                                { facingMode: 'environment' },
+                                { fps: 10, qrbox: { width: 250, height: 150 } },
+                                (decodedText) => {
+                                    if (navigator.vibrate) navigator.vibrate(100);
+                                    this.searchQuery = decodedText;
+                                    this.stopCameraScanner();
+                                    this.searchProducts(true);
+                                },
+                                () => {}
+                            ).catch(err => {
+                                alert('No se pudo iniciar la cámara. Verifica los permisos.');
+                                this.stopCameraScanner();
+                            });
+                        } catch (e) {
+                            alert('Error al acceder a la cámara.');
+                            this.stopCameraScanner();
+                        }
+                    });
+                };
+
+                if (!window.Html5Qrcode) {
+                    const s = document.createElement('script');
+                    s.src = 'https://unpkg.com/html5-qrcode';
+                    s.onload = initScanner;
+                    document.head.appendChild(s);
+                } else {
+                    initScanner();
+                }
+            },
+
+            stopCameraScanner() {
+                if (this.scannerInstance) {
+                    this.scannerInstance.stop().then(() => {
+                        this.scannerInstance.clear();
+                        this.scannerInstance = null;
+                        this.showCamera = false;
+                    }).catch(() => {
+                        this.scannerInstance = null;
+                        this.showCamera = false;
+                    });
+                } else {
+                    this.showCamera = false;
+                }
+            },
+
             closeModal() {
+                this.stopCameraScanner();
                 this.open = false;
                 setTimeout(() => this.resetState(), 300);
             },
             
             resetState() {
+                this.stopCameraScanner();
                 this.searchQuery = '';
                 this.searchResults = [];
                 this.productoId = '';
@@ -693,8 +760,8 @@ PROPÓSITO:
                 ];
             },
 
-            // Búsqueda en el catálogo de productos con debounce
-            searchProducts() {
+            // Búsqueda en el catálogo de productos con debounce y auto-selección opcional
+            searchProducts(autoSelect = false) {
                 if (this.searchQuery.trim().length < 2) {
                     this.searchResults = [];
                     return;
@@ -706,6 +773,9 @@ PROPÓSITO:
                 .then(res => res.json())
                 .then(data => {
                     this.searchResults = data.data || data;
+                    if (autoSelect && Array.isArray(this.searchResults) && this.searchResults.length === 1) {
+                        this.selectProduct(this.searchResults[0]);
+                    }
                 })
                 .finally(() => this.isLoading = false);
             },
@@ -872,15 +942,30 @@ PROPÓSITO:
 
             <div class="p-4 sm:p-6 overflow-y-auto custom-scrollbar flex-1 relative space-y-5">
                 
-                {{-- PASO 1: Buscar o Escribir Nombre de Producto --}}
+                {{-- PASO 1: Buscar o Escribir Nombre de Producto o Escanear con Cámara --}}
                 <div x-show="!nombre" class="space-y-4 relative">
-                    <label class="block text-sm font-medium text-slate-300 mb-2">Producto (Escribe para buscar o crear)</label>
-                    <div class="relative">
-                        <div class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
-                            <svg class="w-5 h-5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+                    <label class="block text-sm font-medium text-slate-300 mb-2">Producto (Escribe o escanea con la cámara)</label>
+                    <div class="flex items-center gap-2">
+                        <div class="relative flex-1">
+                            <div class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+                                <svg class="w-5 h-5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+                            </div>
+                            <input x-ref="searchBox" type="text" x-model="searchQuery" @input.debounce.300ms="searchProducts()" @keydown.enter.prevent="useNewProduct()" placeholder="Ej: Cerveza Escudo, Cristal, Coca-Cola o escanea código..." 
+                                class="block w-full pl-10 pr-4 p-3 bg-slate-800 border-slate-700 text-white rounded-lg focus:ring-emerald-500 focus:border-emerald-500 text-sm">
                         </div>
-                        <input x-ref="searchBox" type="text" x-model="searchQuery" @input.debounce.300ms="searchProducts()" @keydown.enter.prevent="useNewProduct()" placeholder="Ej: Cerveza Escudo, Cristal, Coca-Cola..." 
-                            class="block w-full pl-10 p-3 bg-slate-800 border-slate-700 text-white rounded-lg focus:ring-emerald-500 focus:border-emerald-500 text-sm">
+                        <button type="button" @click="toggleCameraScanner()" class="shrink-0 px-3.5 py-3 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg flex items-center gap-1.5 text-xs font-bold transition-all shadow-md shadow-indigo-600/20 active:scale-95" title="Escanear Código de Barras con la Cámara">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+                            <span class="hidden sm:inline">Cámara</span>
+                        </button>
+                    </div>
+
+                    {{-- Visor de la cámara en vivo para escaneo móvil --}}
+                    <div x-show="showCamera" class="relative rounded-xl overflow-hidden border-2 border-emerald-500/50 bg-black p-2 mt-2" style="display: none;">
+                        <div id="quick-add-reader" class="w-full"></div>
+                        <div class="flex justify-between items-center mt-2 px-1">
+                            <span class="text-xs text-emerald-400 font-semibold animate-pulse">📷 Apunta al código de barras de la lata o botella...</span>
+                            <button type="button" @click="stopCameraScanner()" class="px-3 py-1 bg-slate-800 hover:bg-rose-900/60 text-slate-300 hover:text-white rounded text-xs font-bold transition-colors border border-slate-700">Detener</button>
+                        </div>
                     </div>
 
                     {{-- Lista desplegable de autocompletado y opción de creación directa --}}

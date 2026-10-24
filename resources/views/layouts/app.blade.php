@@ -102,10 +102,10 @@
             </div>
         </div>
 
-        {{-- Registro del Service Worker para PWA (Sólo en Producción para no interferir con recargas y sockets de desarrollo) --}}
+        {{-- Registro del Service Worker para PWA (En Producción y Ngrok móvil) --}}
         <script>
             if ('serviceWorker' in navigator) {
-                @if(app()->isProduction())
+                @if(app()->isProduction() || str_contains(request()->getHost(), 'ngrok'))
                     window.addEventListener('load', () => {
                         navigator.serviceWorker.register('/sw.js');
                     });

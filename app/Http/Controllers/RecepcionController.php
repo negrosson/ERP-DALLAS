@@ -569,10 +569,16 @@ class RecepcionController extends Controller
     public function destroy(Recepcion $recepcion)
     {
         if ($recepcion->estado === \App\Enums\EstadoRecepcion::CONFIRMADO->value) {
+            if (request()->ajax() || request()->wantsJson()) {
+                return response()->json(['success' => false, 'message' => 'No se puede eliminar una recepción confirmada (los lotes ya se generaron).'], 422);
+            }
             return redirect()->route('recepciones.index')->with('error', 'No se puede eliminar una recepción confirmada (los lotes ya se generaron).');
         }
         
         $recepcion->delete();
+        if (request()->ajax() || request()->wantsJson()) {
+            return response()->json(['success' => true, 'message' => 'Recepción enviada a la papelera.']);
+        }
         return redirect()->route('recepciones.index')->with('success', 'Recepción enviada a la papelera.');
     }
 
@@ -580,7 +586,10 @@ class RecepcionController extends Controller
     {
         $recepcion = Recepcion::onlyTrashed()->findOrFail($id);
         $recepcion->restore();
-        return redirect()->route('recepciones.index')->with('success', 'Recepción restaurada exitosamente.');
+        if (request()->ajax() || request()->wantsJson()) {
+            return response()->json(['success' => true, 'message' => 'Recepción restaurada exitosamente.']);
+        }
+        return redirect()->route('recepciones.index', ['estado' => 'papelera'])->with('success', 'Recepción restaurada exitosamente.');
     }
 
     public function forceDelete($id)
@@ -594,6 +603,9 @@ class RecepcionController extends Controller
             $recepcion->forceDelete();
         });
         
+        if (request()->ajax() || request()->wantsJson()) {
+            return response()->json(['success' => true, 'message' => 'Recepción eliminada permanentemente.']);
+        }
         return redirect()->route('recepciones.index', ['estado' => 'papelera'])->with('success', 'Recepción eliminada permanentemente.');
     }
 

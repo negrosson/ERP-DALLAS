@@ -64,7 +64,9 @@ Route::middleware('auth')->group(function () {
     Route::post('recepciones/scanner/guardar', [RecepcionController::class, 'guardarScanner'])->name('recepciones.scanner.guardar');
     Route::get('recepciones/check-factura', [RecepcionController::class, 'checkFacturaExistente'])->name('recepciones.check-factura');
     Route::get('recepciones/ocr', [RecepcionController::class, 'ocr'])->name('recepciones.ocr');
-    Route::post('recepciones/ocr-process', [RecepcionController::class, 'processOcr'])->name('recepciones.ocr.process');
+    Route::post('recepciones/ocr-process', [RecepcionController::class, 'processOcr'])
+        ->middleware('throttle:15,1')
+        ->name('recepciones.ocr.process');
     
     // Specific routes must come before resource
     Route::post('recepciones/{id}/restore', [RecepcionController::class, 'restore'])->name('recepciones.restore');
