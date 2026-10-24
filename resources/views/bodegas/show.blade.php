@@ -532,9 +532,10 @@ PROPÓSITO:
             nombre: '',
             sku: '',
             marca: '',
+            formato: 'Botella',
             capacidad: '',
             formatoEmpaqueDefault: 'Display',
-            unidadesPorEmpaqueDefault: 24,
+            unidadesPorEmpaqueDefault: 6,
             
             // Lotes existentes cargados desde la base de datos
             lotesExistentes: [],
@@ -616,6 +617,7 @@ PROPÓSITO:
                 this.nombre = '';
                 this.sku = '';
                 this.marca = '';
+                this.formato = 'Botella';
                 this.capacidad = '';
                 this.lotesExistentes = [];
                 this.isLoadingLotes = false;
@@ -655,6 +657,7 @@ PROPÓSITO:
                 this.nombre = prod.nombre;
                 this.sku = prod.sku || '';
                 this.marca = prod.marca || '';
+                this.formato = prod.formato || 'Botella';
                 this.capacidad = prod.capacidad || '';
                 
                 // Formato por defecto
@@ -711,6 +714,8 @@ PROPÓSITO:
                 this.productoId = '';
                 this.nombre = this.searchQuery;
                 this.sku = '';
+                this.marca = '';
+                this.formato = 'Botella';
                 this.capacidad = '';
                 this.lotesExistentes = [];
                 this.lotesFilas = [
@@ -836,49 +841,83 @@ PROPÓSITO:
                                 </div>
                             </div>
 
-                            {{-- Campo de Capacidad / Volumen --}}
-                            <div class="mt-3 pt-3 border-t border-slate-700/60">
-                                <label class="block text-xs font-semibold text-slate-300 mb-1 flex items-center justify-between">
-                                    <span class="flex items-center gap-1.5">
-                                        <svg class="w-3.5 h-3.5 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 002-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path></svg>
-                                        Capacidad / Tamaño (Volumen)
-                                    </span>
-                                    <span class="text-[10px] text-slate-400 font-normal">ej: 350 cc, 470 cc, 1.5 L</span>
-                                </label>
-                                <input type="text" name="capacidad" x-model="capacidad" list="capacidades-sugeridas"
-                                       placeholder="Ej: 350 cc, 470 cc, 1.5 L..."
-                                       class="w-full bg-slate-900 border-slate-700 text-white rounded-lg text-sm px-3 py-2 focus:ring-emerald-500 focus:border-emerald-500 font-mono">
-                                <datalist id="capacidades-sugeridas">
-                                    <option value="220 ml">
-                                    <option value="237 cc">
-                                    <option value="250 ml">
-                                    <option value="330 cc">
-                                    <option value="350 cc">
-                                    <option value="355 ml">
-                                    <option value="400 cc">
-                                    <option value="470 cc">
-                                    <option value="473 cc">
-                                    <option value="500 cc">
-                                    <option value="590 ml">
-                                    <option value="600 cc">
-                                    <option value="650 cc">
-                                    <option value="710 cc">
-                                    <option value="1 L">
-                                    <option value="1.5 L">
-                                    <option value="1.6 L">
-                                    <option value="1.75 L">
-                                    <option value="2 L">
-                                    <option value="2.5 L">
-                                    <option value="3 L">
-                                </datalist>
-                                {{-- Botones rápidos de capacidad para un solo clic --}}
-                                <div class="flex flex-wrap gap-1 mt-2">
-                                    <template x-for="c in ['350 cc', '470 cc', '500 cc', '710 cc', '1.5 L', '3 L']" :key="c">
-                                        <button type="button" @click="capacidad = c" 
-                                                :class="capacidad === c ? 'bg-indigo-600 text-white border-indigo-400 shadow-sm' : 'bg-slate-800 text-slate-400 hover:text-white border-slate-700'"
-                                                class="text-[10px] font-bold px-2 py-0.5 rounded border transition-colors"
-                                                x-text="c"></button>
-                                    </template>
+                            {{-- Configuración de Formato y Capacidad del Producto --}}
+                            <div class="mt-3 pt-3 border-t border-slate-700/60 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                {{-- Formato de Envase --}}
+                                <div>
+                                    <label class="block text-xs font-semibold text-slate-300 mb-1 flex items-center justify-between">
+                                        <span class="flex items-center gap-1.5">
+                                            <svg class="w-3.5 h-3.5 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 002-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path></svg>
+                                            Formato de Envase
+                                        </span>
+                                        <span class="text-[10px] text-slate-400 font-normal">Tipo envase</span>
+                                    </label>
+                                    <select name="formato" x-model="formato"
+                                            class="w-full bg-slate-900 border-slate-700 text-white rounded-lg text-sm px-3 py-2 focus:ring-emerald-500 focus:border-emerald-500 font-mono">
+                                        <option value="Botella">Botella</option>
+                                        <option value="Lata">Lata</option>
+                                        <option value="Display">Display</option>
+                                        <option value="Caja">Caja</option>
+                                        <option value="Pack">Pack</option>
+                                        <option value="Barril">Barril</option>
+                                        <option value="Bidón">Bidón</option>
+                                        <option value="Otro">Otro</option>
+                                    </select>
+                                    <div class="flex flex-wrap gap-1 mt-2">
+                                        <template x-for="f in ['Botella', 'Lata', 'Display', 'Pack']" :key="f">
+                                            <button type="button" @click="formato = f" 
+                                                    :class="formato === f ? 'bg-indigo-600 text-white border-indigo-400 shadow-sm' : 'bg-slate-800 text-slate-400 hover:text-white border-slate-700'"
+                                                    class="text-[10px] font-bold px-2 py-0.5 rounded border transition-colors"
+                                                    x-text="f"></button>
+                                        </template>
+                                    </div>
+                                </div>
+
+                                {{-- Capacidad / Volumen --}}
+                                <div>
+                                    <label class="block text-xs font-semibold text-slate-300 mb-1 flex items-center justify-between">
+                                        <span class="flex items-center gap-1.5">
+                                            <svg class="w-3.5 h-3.5 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 002-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path></svg>
+                                            Capacidad / Tamaño (Volumen)
+                                        </span>
+                                        <span class="text-[10px] text-slate-400 font-normal">ej: 350 cc, 1.5 L</span>
+                                    </label>
+                                    <input type="text" name="capacidad" x-model="capacidad" list="capacidades-sugeridas"
+                                           placeholder="Ej: 350 cc, 600 ml, 1.5 L, 1.6 L..."
+                                           class="w-full bg-slate-900 border-slate-700 text-white rounded-lg text-sm px-3 py-2 focus:ring-emerald-500 focus:border-emerald-500 font-mono">
+                                    <datalist id="capacidades-sugeridas">
+                                        <option value="220 ml">
+                                        <option value="237 cc">
+                                        <option value="250 ml">
+                                        <option value="330 cc">
+                                        <option value="350 cc">
+                                        <option value="355 ml">
+                                        <option value="400 cc">
+                                        <option value="470 cc">
+                                        <option value="473 cc">
+                                        <option value="500 cc">
+                                        <option value="590 ml">
+                                        <option value="600 ml">
+                                        <option value="600 cc">
+                                        <option value="650 cc">
+                                        <option value="710 cc">
+                                        <option value="1 L">
+                                        <option value="1.5 L">
+                                        <option value="1.6 L">
+                                        <option value="1.75 L">
+                                        <option value="2 L">
+                                        <option value="2.5 L">
+                                        <option value="3 L">
+                                    </datalist>
+                                    {{-- Botones rápidos de capacidad para un solo clic --}}
+                                    <div class="flex flex-wrap gap-1 mt-2">
+                                        <template x-for="c in ['350 cc', '590 ml', '600 ml', '1.5 L', '1.6 L', '3 L']" :key="c">
+                                            <button type="button" @click="capacidad = c" 
+                                                    :class="capacidad === c ? 'bg-indigo-600 text-white border-indigo-400 shadow-sm' : 'bg-slate-800 text-slate-400 hover:text-white border-slate-700'"
+                                                    class="text-[10px] font-bold px-2 py-0.5 rounded border transition-colors"
+                                                    x-text="c"></button>
+                                        </template>
+                                    </div>
                                 </div>
                             </div>
                         </div>

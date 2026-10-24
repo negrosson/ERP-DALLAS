@@ -160,6 +160,12 @@ class ProductMatcherService
             $marca = 'fanta';
         } elseif (str_contains($desc, 'SPRITE')) {
             $marca = 'sprite';
+        } elseif (str_contains($desc, 'VITAL')) {
+            $marca = 'vital';
+        } elseif (str_contains($desc, 'AQUARIUS') || str_contains($desc, 'ACUARIOS')) {
+            $marca = 'aquarius';
+        } elseif (str_contains($desc, 'BENEDICTINO')) {
+            $marca = 'benedictino';
         } elseif (str_contains($desc, 'ANDINA') || str_contains($desc, 'ADV')) {
             $marca = 'andina del valle';
         } elseif (str_contains($desc, 'MONSTER')) {
@@ -237,6 +243,26 @@ class ProductMatcherService
             } else {
                 $partes[] = 'Original';
             }
+        } elseif ($marca === 'fanta') {
+            $partes[] = 'Fanta';
+            if ($sabor) $partes[] = $sabor;
+            if ($variante) $partes[] = $variante;
+        } elseif ($marca === 'sprite') {
+            $partes[] = 'Sprite';
+            if ($sabor) $partes[] = $sabor;
+            if ($variante) $partes[] = $variante;
+        } elseif ($marca === 'vital') {
+            $partes[] = 'Vital';
+            if (preg_match('/SIN\s*GAS/i', $descRaw)) $partes[] = 'Sin Gas';
+            elseif (preg_match('/GASIFICADA|CON\s*GAS/i', $descRaw)) $partes[] = 'Gasificada';
+        } elseif ($marca === 'aquarius') {
+            $partes[] = 'Aquarius';
+            if ($sabor) $partes[] = $sabor;
+            if ($variante) $partes[] = $variante;
+        } elseif ($marca === 'benedictino') {
+            $partes[] = 'Benedictino';
+            if (preg_match('/SIN\s*GAS/i', $descRaw)) $partes[] = 'Sin Gas';
+            elseif (preg_match('/GASIFICADA|CON\s*GAS/i', $descRaw)) $partes[] = 'Con Gas';
         } elseif ($marca === 'andina del valle') {
             $partes[] = 'Andina del Valle';
             if ($sabor) $partes[] = $sabor;

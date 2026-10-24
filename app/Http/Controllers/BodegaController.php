@@ -60,6 +60,8 @@ class BodegaController extends Controller
             'Sol' => 'Sol',
             'Cusqueña' => 'Cusqueña',
             'Báltica' => 'Báltica',
+            'Blue Moon' => 'Blue Moon',
+            'Miller' => 'Miller',
         ];
 
         $marcasCcu = [
@@ -73,17 +75,23 @@ class BodegaController extends Controller
             'Canada Dry' => 'Canada Dry',
             'Gatorade' => 'Gatorade',
             'Red Bull' => 'Red Bull',
+            'Mas' => 'Mas',
+            'Watt' => 'Watt\'s',
         ];
 
         $marcasCoca = [
             'Coca-Cola' => 'Coca-Cola',
             'Fanta' => 'Fanta',
             'Sprite' => 'Sprite',
+            'Vital' => 'Vital',
+            'Aquarius' => 'Aquarius',
+            'Benedictino' => 'Benedictino',
             'Monster' => 'Monster',
             'Powerade' => 'Powerade',
-            'Benedictino' => 'Benedictino',
-            'Aquarius' => 'Aquarius',
             'Andina del Valle' => 'Andina del Valle',
+            'Nordic' => 'Nordic',
+            'Kapo' => 'Kapo',
+            'Fuze Tea' => 'Fuze Tea',
         ];
 
         if (str_contains($nombreBodega, 'cerveza') || str_contains($nombreBodega, 'beer')) {
@@ -102,6 +110,21 @@ class BodegaController extends Controller
                 'Coca-Cola' => $marcasCoca,
             ];
             $placeholderMarca = 'Cualquier Marca/Bebida';
+        }
+
+        // Detección dinámica: Si en esta bodega existen productos con marcas adicionales, incorporarlas automáticamente
+        $productosEnBodega = \App\Models\CatalogoProducto::whereHas('lotesStock', function($q) use ($bodega) {
+            $q->where('bodega_id', $bodega->id)->where('cantidad_disponible', '>', 0);
+        })->get(['id', 'nombre', 'sku']);
+
+        foreach ($productosEnBodega as $prod) {
+            $marcaInferida = $prod->marca;
+            if ($marcaInferida && $marcaInferida !== 'Sin Marca') {
+                $grupoClave = array_key_first($gruposMarcas);
+                if (!isset($gruposMarcas[$grupoClave][$marcaInferida])) {
+                    $gruposMarcas[$grupoClave][$marcaInferida] = $marcaInferida;
+                }
+            }
         }
 
         $query = \App\Models\CatalogoProducto::query();
@@ -285,7 +308,7 @@ class BodegaController extends Controller
             $producto = \App\Models\CatalogoProducto::firstOrCreate(
                 [
                     'nombre' => $validated['nombre'],
-                    'formato' => $validated['formato'] ?? 'Display',
+                    'formato' => $validated['formato'] ?? 'Botella',
                     'capacidad' => $validated['capacidad'] ?? null,
                 ],
                 ['sku' => 'SKU-' . strtoupper(uniqid())] // Auto-generate SKU if needed
